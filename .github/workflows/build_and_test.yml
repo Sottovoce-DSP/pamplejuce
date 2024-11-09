@@ -171,8 +171,10 @@ jobs:
       - name: Create DMG with PKG Installer (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          # Install appdmg
+          # workaround for https://github.com/LinusU/node-appdmg/issues/234
+          python3 -m pip install setuptools --break-system-packages
           npm install -g appdmg
+          mkdir -p packaging/dmg
 
           # Run appdmg to create the .dmg
           cd packaging && appdmg dmg.json "${{ env.ARTIFACT_NAME }}.dmg"

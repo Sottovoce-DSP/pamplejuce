@@ -24,7 +24,7 @@
     <choice id="au" visible="true" title="AU Plugin">
         <pkg-ref id="com.pamplejuce.pamplejuce.au"/>
     </choice>
-    <pkg-ref id="com.pamplejuce.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp.pkg</pkg-ref>
-    <pkg-ref id="com.pamplejuce.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3.pkg</pkg-ref>
-    <pkg-ref id="com.pamplejuce.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU.pkg</pkg-ref>
+        <pkg-ref id="com.pamplejuce.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
+        <pkg-ref id="com.pamplejuce.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
+        <pkg-ref id="com.pamplejuce.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
 </installer-gui-script>
