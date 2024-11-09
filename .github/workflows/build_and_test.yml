@@ -69,7 +69,7 @@ jobs:
           p12-password: |
             ${{ secrets.DEV_ID_APP_PASSWORD }}
             ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
-          keychain: "signing_temp.keychain"
+          keychain: "signing_temp"
 
       - name: Configure
         run: cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE}} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ matrix.extra-flags }} .
