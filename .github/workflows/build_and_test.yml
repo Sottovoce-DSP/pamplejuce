@@ -175,14 +175,14 @@ jobs:
           npm install -g appdmg
 
           # Run appdmg to create the .dmg
-          appdmg packaging/dmg.json "packaging/${{ env.ARTIFACT_NAME }}.dmg"
+          cd packaging && appdmg dmg.json "${{ env.ARTIFACT_NAME }}.dmg"
 
           # Sign the DMG
-          codesign -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" --timestamp -i ${{ env.BUNDLE_ID }} --force "packaging/${{ env.ARTIFACT_NAME }}.dmg"
+          codesign -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" --timestamp -i ${{ env.BUNDLE_ID }} --force "${{ env.ARTIFACT_NAME }}.dmg"
 
           # Notarize and staple the DMG
-          xcrun notarytool submit "packaging/${{ env.ARTIFACT_NAME }}.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "packaging/${{ env.ARTIFACT_NAME }}.dmg"
+          xcrun notarytool submit "${{ env.ARTIFACT_NAME }}.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "${{ env.ARTIFACT_NAME }}.dmg"
 
       - name: Upload DMG (macOS)
         if: ${{ matrix.name == 'macOS' }}
