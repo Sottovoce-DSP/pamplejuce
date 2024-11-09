@@ -1,19 +1,162 @@
-This is a End User License Agreement ("EULA").
+END USER LICENSE AGREEMENT (EULA)
 
-Please read it carefully before installing this software. By installing and using this software, you agree you have read this EULA and agree to the terms and conditions. If you disagree, do not install.
+IMPORTANT: READ CAREFULLY
 
-1. This software is licensed for use solely by the person who paid for the license, referred to as "Licensee".
+This End User License Agreement ("Agreement") is a legal contract between you (either an individual or a single entity) ("Licensee") and Sottovoce DSP ("Company," "we," "us," or "our") for the use of the SpeedShift ("Software"). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this Agreement. If you do not agree to the terms of this Agreement, do not install or use the Software.
 
-2. Licensee can install this software on multiple computers, but only if they personally own and manage them.
-Licensee is allowed to make personal backup copies of the software's materials.
+GRANT OF LICENSE
 
-3. Licensee is prohibited from copying, altering, translating, selling, distributing, or reverse engineering the software.
-Trying to access its source code, unless allowed by law, is also forbidden.
+1.1 License
+The Company grants you a non-exclusive, non-transferable, revocable license to use the Software solely for your personal or internal business purposes in accordance with the terms of this Agreement.
 
-4. Licensee must not change or hide any copyright, trademark, or other ownership notices in the software.
+1.2 Scope
+You may install and use one (1) copy of the Software on a single device that you personally own or manage. This license does not permit multiple activations or installations on multiple devices without obtaining additional licenses. Any attempt to install or activate the Software on additional devices without the appropriate license is prohibited. If you need more flexible usage, please contact us.
 
-5. Licensee may not share, publish or distribute the software without prior consent.
+RESTRICTIONS
 
-6. This software is provided "as-is" without any warranties, either expressed or implied, including but not limited to implied warranties of merchantability or fitness for a particular purpose.
+2.1 Prohibited Actions
+You shall not, and shall not permit others to:
 
-7. In no event shall the software's creators or distributors be liable for any damages, including but not limited to, direct, indirect, special, incidental, or consequential damages or other losses arising out of the use of or inability to use the software.
+Copy, modify, translate, or create derivative works based on the Software.
+Reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of the Software.
+Rent, lease, distribute, sell, sublicense, or otherwise transfer copies of the Software to others.
+Remove, alter, or obscure any proprietary notices, labels, or marks on the Software.
+
+2.2 Third-Party Components
+The Software may include third-party components subject to separate license terms. You agree to comply with all such additional terms.
+
+2.3 Distribution Restrictions
+You are prohibited from distributing the Software without the Company's explicit authorization. This restriction encompasses, but is not limited to:
+
+Publishing the Software on magazine covers or software review platforms.
+Incorporating the Software into other software applications, including video games, Digital Audio Workstations (DAWs), or similar programs, and distributing them.
+Selling, leasing, sublicensing, or otherwise transferring the Software to third parties.
+
+PRIVACY POLICY
+
+3.1 Data Collection and Use
+By downloading, installing, or using the Software, you acknowledge that the Company may gather information about you and your usage of the Software. All such data collection is governed by our Privacy Policy, which is incorporated into this Agreement by reference. By utilizing the Software, you provide your consent for the Company to collect and use your information in accordance with the Privacy Policy.
+
+BETA SOFTWARE
+
+4.1 Beta Versions
+The Software may include beta versions that are not final releases. Beta Software may contain bugs, errors, or other issues and is provided "AS IS" without any warranties. Use of Beta Software is at your own risk, and the Company is not required to provide updates or support for these versions.
+
+OWNERSHIP
+
+5.1 Intellectual Property Rights
+The Software is licensed, not sold. The Company and its licensors retain all right, title, and interest in and to the Software, including all intellectual property rights therein.
+
+5.2 No Ownership Rights
+This Agreement does not convey any rights of ownership in the Software to you, and all rights not expressly granted are reserved by the Company.
+
+TERM OF SOFTWARE LICENSE
+
+6.1 Duration
+This Software license remains valid as long as you maintain an active account in good standing and adhere to all terms of this Agreement. Failure to comply with these terms may result in the termination of your license.
+
+TERMINATION
+
+7.1 Termination by You
+You may terminate this Agreement at any time by destroying all copies of the Software in your possession or control.
+
+7.2 Termination by Company
+The Company may terminate this Agreement immediately if you fail to comply with any term or condition of this Agreement, engage in activities that negatively impact the Software or other users, undergo a change of control or sale, or if the Company discontinues the Software. Upon termination, you must destroy all copies of the Software.
+
+7.3 Effect of Termination
+Upon termination, all rights granted under this Agreement will cease, and you must discontinue all use of the Software.
+
+UPDATES AND SUPPORT
+
+8.1 Updates
+The Company may, but is not obligated to, provide updates, upgrades, or patches to the Software. Such updates may be subject to additional terms and conditions.
+
+8.2 Support
+The Company may provide support services related to the Software ("Support"). Use of Support is governed by the Company's policies and any supplemental agreements.
+
+INTELLECTUAL PROPERTY
+
+9.1 Trademarks
+All trademarks, service marks, and trade names used in connection with the Software are the property of the Company or their respective owners. You are not permitted to use these marks without prior written consent.
+
+9.2 Feedback
+If you provide feedback, suggestions, or ideas regarding the Software ("Feedback"), you hereby assign to the Company all rights to such Feedback. The Company may use such Feedback for any purpose without restriction or compensation to you.
+
+LIMITATION OF LIABILITY
+
+10.1 No Warranty
+The Software is provided "AS IS" without warranty of any kind, either express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, or non-infringement.
+
+10.2 Exclusion of Damages
+In no event shall the Company or its licensors be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses, resulting from:
+
+Your use or inability to use the Software.
+Any unauthorized access to or use of the Company's servers and/or any personal information stored therein.
+Any bugs, viruses, trojan horses, or the like that may be transmitted to or through the Software.
+10.3 Maximum Liability
+Notwithstanding any damages that you might incur, the entire liability of the Company and its suppliers under this Agreement and your exclusive remedy for all of the foregoing shall be limited to the amount actually paid by you for the Software.
+
+INDEMNIFICATION
+
+11.1 Your Responsibility
+You agree to indemnify, defend, and hold harmless the Company and its officers, directors, employees, agents, affiliates, and licensors from and against any and all claims, damages, obligations, losses, liabilities, costs, or debt, and expenses (including reasonable attorneys' fees) arising from:
+
+Your use of and access to the Software.
+Your violation of any term of this Agreement.
+Your violation of any third-party right, including without limitation any intellectual property, property, or privacy right.
+
+GOVERNING LAW AND JURISDICTION
+
+This Agreement shall be governed by and construed in accordance with the laws of Ontario, Canada, without regard to its conflict of law principles. You agree to submit to the personal and exclusive jurisdiction of the courts located within Ontario, Canada to resolve any dispute or claim arising from this Agreement.
+
+MISCELLANEOUS
+
+12.1 Severability
+If any provision of this Agreement is held to be unenforceable or invalid, that provision will be limited or eliminated to the minimum extent necessary so that this Agreement will otherwise remain in full force and effect.
+
+12.2 Entire Agreement
+This Agreement constitutes the entire agreement between you and the Company regarding the use of the Software and supersedes all prior or contemporaneous understandings, agreements, representations, and warranties, both written and oral.
+
+12.3 Amendments
+The Company reserves the right to modify or replace this Agreement at any time. If a revision is material, we will provide at least thirty (30) days' notice prior to any new terms taking effect. What constitutes a material change will be determined at the Company's sole discretion.
+
+12.4 No Waiver
+No waiver of any provision of this Agreement shall be effective unless in writing and signed by the Company. The failure of the Company to enforce any right or provision of this Agreement shall not constitute a waiver of such right or provision.
+
+12.5 Assignment
+You may not assign or transfer your rights or obligations under this Agreement, by operation of law or otherwise, without the prior written consent of the Company. Any attempt to assign or transfer in violation of this section shall be null and void.
+
+12.6 Contact Information
+For any questions about this Agreement, please contact us.
+
+By accepting, installing, copying, or otherwise using the Software, you acknowledge that you have read this Agreement, understand it, and agree to be bound by its terms and conditions.
+
+Audio Unit is a trademark of Apple, Inc.
+
+=========================================
+
+Signalsmith License
+
+MIT License
+
+Copyright (c) 2022 Geraint Luff / Signalsmith Audio Ltd.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=========================================
