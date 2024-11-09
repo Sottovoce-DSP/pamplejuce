@@ -63,15 +63,13 @@ jobs:
         uses: apple-actions/import-codesign-certs@v3
         if: ${{ matrix.name == 'macOS' }}
         with:
-          p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
-          p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
-
-      - name: Import Installer Certificate (macOS)
-        uses: apple-actions/import-codesign-certs@v3
-        if: ${{ matrix.name == 'macOS' }}
-        with:
-          p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
-          p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
+          p12-file-base64: |
+            ${{ secrets.DEV_ID_APP_CERT }}
+            ${{ secrets.DEV_ID_INSTALL_CERT }}
+          p12-password: |
+            ${{ secrets.DEV_ID_APP_PASSWORD }}
+            ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
+          keychain: "signing_temp.keychain"
 
       - name: Configure
         run: cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE}} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ matrix.extra-flags }} .
@@ -163,7 +161,7 @@ jobs:
 
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
-                       --resources "resources" \
+                       --resources "packaging" \
                        --package-path "packaging" \
                        --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
                        "packaging/PamplejuceInstaller.pkg"
@@ -174,7 +172,6 @@ jobs:
           # workaround for https://github.com/LinusU/node-appdmg/issues/234
           python3 -m pip install setuptools --break-system-packages
           npm install -g appdmg
-          mkdir -p packaging/dmg
 
           # Run appdmg to create the .dmg
           cd packaging && appdmg dmg.json "${{ env.ARTIFACT_NAME }}.dmg"
@@ -192,6 +189,11 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}.dmg
           path: packaging/${{ env.ARTIFACT_NAME }}.dmg
+
+      - name: Remove Temporary Keychain (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security delete-keychain signing_temp.keychain || true
 
   release:
     if: contains(github.ref, 'tags/v')
