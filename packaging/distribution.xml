@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>Pamplejuce Installer</title>
+    <background file="background.png" alignment="center" scaling="proportional"/>
+    <welcome file="welcome.html"/>
+    <license file="license.html"/>
+    <options customize="never" allow-external-scripts="no"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="app"/>
+            <line choice="vst3"/>
+            <line choice="au"/>
+        </line>
+    </choices-outline>
+    <choice id="default" title="Pamplejuce">
+        <description>Install Pamplejuce and plugins</description>
+    </choice>
+    <choice id="app" visible="true" title="Application">
+        <pkg-ref id="com.pamplejuce.pamplejuce.app"/>
+    </choice>
+    <choice id="vst3" visible="true" title="VST3 Plugin">
+        <pkg-ref id="com.pamplejuce.pamplejuce.vst3"/>
+    </choice>
+    <choice id="au" visible="true" title="AU Plugin">
+        <pkg-ref id="com.pamplejuce.pamplejuce.au"/>
+    </choice>
+    <pkg-ref id="com.pamplejuce.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU.pkg</pkg-ref>
+</installer-gui-script>
