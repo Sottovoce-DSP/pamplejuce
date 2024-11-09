@@ -3,7 +3,7 @@
     <title>Pamplejuce Installer</title>
     <background file="background.png" alignment="center" scaling="proportional"/>
     <welcome file="welcome.html"/>
-    <license file="license.html"/>
+    <license file="EULA.txt"/>
     <options customize="never" allow-external-scripts="no"/>
     <choices-outline>
         <line choice="default">

@@ -163,7 +163,7 @@ jobs:
 
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
-                       --resources "packaging/Resources" \
+                       --resources "resources" \
                        --package-path "packaging" \
                        --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
                        "packaging/PamplejuceInstaller.pkg"
