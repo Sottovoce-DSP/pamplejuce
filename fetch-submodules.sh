@@ -58,5 +58,6 @@ echo "melatonin_inspector submodule updated to $MELATONIN_INSPECTOR_COMMIT."
 # Commit the updated submodule references
 echo "Committing submodule updates..."
 git add JUCE cmake modules/melatonin_inspector
+git commit -m "Update submodules to match speedshift repository"
 
 echo "Submodule update complete."
