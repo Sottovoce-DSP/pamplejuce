@@ -13,7 +13,6 @@
     }
   },
   "format": "UDZO",
-  "hideExtensions": true,
   "contents": [
     { "x": 250, "y": 200, "type": "file", "path": "dmg/Pamplejuce Demo.app" },
     { "x": 480, "y": 200, "type": "link", "path": "/Applications" },
