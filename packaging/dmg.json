@@ -1,7 +1,8 @@
 {
   "title": "Pamplejuce",
   "icon": "icon_file.icns",
-  "background": "background.jpg",
+  "background": "background.png",
+  "backgroundColor": "#FFFFFF",
   "window": {
     "position": {
       "x": 100,
