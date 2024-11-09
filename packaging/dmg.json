@@ -6,6 +6,10 @@
     "position": {
       "x": 100,
       "y": 100
+    },
+    "size": {
+      "width": 730,
+      "height": 512
     }
   },
   "format": "UDZO",
