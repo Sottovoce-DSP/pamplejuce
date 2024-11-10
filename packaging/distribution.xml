@@ -27,4 +27,8 @@
     <pkg-ref id="com.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
     <pkg-ref id="com.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
     <pkg-ref id="com.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
+
+    <conclusion>
+        <readme file="conclusion.html"/>
+    </conclusion>
 </installer-gui-script>
