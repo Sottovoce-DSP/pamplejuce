@@ -101,6 +101,9 @@ jobs:
           echo "STANDALONE_PATH=$ARTIFACTS_PATH/Standalone/${{ env.PRODUCT_NAME }}.app" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
 
+      - name: List Files in Directory
+        run: ls -la
+
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}
         run: ./Tests
