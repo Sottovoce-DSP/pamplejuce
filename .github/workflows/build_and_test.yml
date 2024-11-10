@@ -59,26 +59,12 @@ jobs:
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
 
-      - name: Import App Certificate (macOS)
+      - name: Import Certificates (macOS)
         uses: apple-actions/import-codesign-certs@v3
         if: ${{ matrix.name == 'macOS' }}
         with:
           p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
           p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
-          keychain: "app_signing_temp"  # No .keychain extension
-
-      - name: Import Installer Certificate (macOS)
-        uses: apple-actions/import-codesign-certs@v3
-        if: ${{ matrix.name == 'macOS' }}
-        with:
-          p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
-          p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
-          keychain: "installer_signing_temp"  # No .keychain extension
-
-      - name: Add Both Keychains to Search List (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        run: |
-          security list-keychains -d user -s app_signing_temp.keychain installer_signing_temp.keychain $(security list-keychains -d user | tr -d '"')
 
       - name: Configure
         run: cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE}} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ matrix.extra-flags }} .
@@ -101,94 +87,50 @@ jobs:
           echo "STANDALONE_PATH=$ARTIFACTS_PATH/Standalone/${{ env.PRODUCT_NAME }}.app" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
 
+      - name: Codesign (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          # Each plugin must be code signed
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.VST3_PATH }}" --deep --strict --options=runtime --timestamp
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.AU_PATH }}" --deep --strict --options=runtime --timestamp
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.STANDALONE_PATH }}" --deep --strict --options=runtime --timestamp
+
       - name: Add Custom Icons (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          # Add the .icns file as its own icon resource
+          # add the icns as its own icon resource (meta!)
           sips -i packaging/icon_file.icns
 
-          # Extract the icon resource
+          # Grab the resource, put in tempfile
           DeRez -only icns packaging/icon_file.icns > /tmp/icons
 
-          # Attach the icon resource to the VST3 and AU plugins
-          Rez -a /tmp/icons -o "${{ env.VST3_PATH }}/Icon\?\r"
-          Rez -a /tmp/icons -o "${{ env.AU_PATH }}/Icon\?\r"
+          # Stuff the resource into the strange Icon? file's resource fork
+          Rez -a /tmp/icons -o "${{ env.VST3_PATH }}/Icon"$'\r'
+          Rez -a /tmp/icons -o "${{ env.AU_PATH }}/Icon"$'\r'
 
-          # Set the custom icon attribute
+          # Set custom icon attribute
           SetFile -a C "${{ env.VST3_PATH }}"
           SetFile -a C "${{ env.AU_PATH }}"
 
-      - name: Create PKG Installer (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        run: |
-          # Create directories
-          mkdir -p packaging/dmg
-
-          # Move built products
-          mv "${{ env.VST3_PATH }}" packaging/dmg/
-          mv "${{ env.AU_PATH }}" packaging/dmg/
-          mv "${{ env.STANDALONE_PATH }}" packaging/dmg/
-
-          # Define paths
-          APP_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.app"
-          VST3_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.vst3"
-          AU_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.component"
-
-          # Define package IDs
-          APP_PKG_ID="${{ env.BUNDLE_ID }}.app"
-          VST3_PKG_ID="${{ env.BUNDLE_ID }}.vst3"
-          AU_PKG_ID="${{ env.BUNDLE_ID }}.au"
-
-          # Create component packages
-          pkgbuild --install-location "/Applications" \
-                   --component "$APP_PATH" \
-                   --identifier "$APP_PKG_ID" \
-                   "packaging/PamplejuceApp.pkg"
-
-          pkgbuild --install-location "/Library/Audio/Plug-Ins/VST3" \
-                   --component "$VST3_PATH" \
-                   --identifier "$VST3_PKG_ID" \
-                   "packaging/PamplejuceVST3.pkg"
-
-          pkgbuild --install-location "/Library/Audio/Plug-Ins/Components" \
-                   --component "$AU_PATH" \
-                   --identifier "$AU_PKG_ID" \
-                   "packaging/PamplejuceAU.pkg"
-
-          # Sign the component packages
-          productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceApp.pkg" \
-                      "packaging/PamplejuceApp-signed.pkg"
-
-          productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceVST3.pkg" \
-                      "packaging/PamplejuceVST3-signed.pkg"
-
-          productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceAU.pkg" \
-                      "packaging/PamplejuceAU-signed.pkg"
-
-          # Build the product archive (installer package)
-          productbuild --distribution "packaging/distribution.xml" \
-                       --resources "packaging" \
-                       --package-path "packaging" \
-                       --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                       "packaging/PamplejuceInstaller.pkg"
-
-      - name: Create DMG with PKG Installer (macOS)
+      - name: Create DMG, Notarize and Staple (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
           # workaround for https://github.com/LinusU/node-appdmg/issues/234
           python3 -m pip install setuptools --break-system-packages
           npm install -g appdmg
+          mkdir -p packaging/dmg
+
+          # Create directories for the dmg symlinks
+          sudo mkdir -m 755 -p /Library/Audio/Plug-Ins/Components && sudo mkdir -m 755 -p /Library/Audio/Plug-Ins/VST3
+          ln -s /Library/Audio/Plug-Ins/Components "packaging/dmg/Your Mac's Component folder"
+          ln -s /Library/Audio/Plug-Ins/VST3 "packaging/dmg/Your Mac's VST3 folder"
+          mv "${{ env.VST3_PATH }}" packaging/dmg
+          mv "${{ env.AU_PATH }}" packaging/dmg
+          mv "${{ env.STANDALONE_PATH }}" packaging/dmg
 
           # Run appdmg to create the .dmg
-          cd packaging && appdmg dmg.json "${{ env.ARTIFACT_NAME }}.dmg"
-
-          # Sign the DMG
+          cd packaging && appdmg dmg.json "${{ env.ARTIFACT_NAME}}.dmg"
           codesign -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" --timestamp -i ${{ env.BUNDLE_ID }} --force "${{ env.ARTIFACT_NAME }}.dmg"
-
-          # Notarize and staple the DMG
           xcrun notarytool submit "${{ env.ARTIFACT_NAME }}.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
           xcrun stapler staple "${{ env.ARTIFACT_NAME }}.dmg"
 
@@ -198,12 +140,6 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}.dmg
           path: packaging/${{ env.ARTIFACT_NAME }}.dmg
-
-      - name: Remove Temporary Keychains (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        run: |
-          security delete-keychain app_signing_temp.keychain || true
-          security delete-keychain installer_signing_temp.keychain || true
 
   release:
     if: contains(github.ref, 'tags/v')
