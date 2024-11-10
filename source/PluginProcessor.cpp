@@ -24,6 +24,11 @@ const juce::String PluginProcessor::getName() const
     return JucePlugin_Name;
 }
 
+const juce::String PluginProcessor::getVersion() const
+{
+    return "0.0.1";
+}
+
 bool PluginProcessor::acceptsMidi() const
 {
    #if JucePlugin_WantsMidiInput

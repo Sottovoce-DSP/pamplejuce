@@ -101,6 +101,10 @@ jobs:
           echo "STANDALONE_PATH=$ARTIFACTS_PATH/Standalone/${{ env.PRODUCT_NAME }}.app" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
 
+      - name: Test
+        working-directory: ${{ env.BUILD_DIR }}
+        run: ./Tests
+
       - name: Codesign (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
