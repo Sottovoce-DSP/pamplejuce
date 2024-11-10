@@ -59,12 +59,26 @@ jobs:
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
 
-      - name: Import Certificates (macOS)
+      - name: Import App Certificate (macOS)
         uses: apple-actions/import-codesign-certs@v3
         if: ${{ matrix.name == 'macOS' }}
         with:
           p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
           p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
+          keychain: "app_signing_temp"  # No .keychain extension
+
+      - name: Import Installer Certificate (macOS)
+        uses: apple-actions/import-codesign-certs@v3
+        if: ${{ matrix.name == 'macOS' }}
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
+          p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
+          keychain: "installer_signing_temp"  # No .keychain extension
+
+      - name: Add Both Keychains to Search List (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security list-keychains -d user -s app_signing_temp.keychain installer_signing_temp.keychain $(security list-keychains -d user | tr -d '"')
 
       - name: Configure
         run: cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE}} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ matrix.extra-flags }} .
@@ -140,6 +154,12 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}.dmg
           path: packaging/${{ env.ARTIFACT_NAME }}.dmg
+
+      - name: Remove Temporary Keychains (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security delete-keychain app_signing_temp.keychain || true
+          security delete-keychain installer_signing_temp.keychain || true
 
   release:
     if: contains(github.ref, 'tags/v')
