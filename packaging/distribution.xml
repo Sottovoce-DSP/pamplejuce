@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="1">
-    <title>Pamplejuce Installer</title>
+    <title>Pamplejuce</title>
     <background file="background.png" alignment="center" scaling="proportional"/>
     <welcome file="welcome.html"/>
     <license file="EULA.txt"/>
-    <options customize="never" allow-external-scripts="no"/>
+    <options customize="always" allow-external-scripts="no"/>
     <choices-outline>
         <line choice="default">
             <line choice="app"/>
@@ -12,19 +12,24 @@
             <line choice="au"/>
         </line>
     </choices-outline>
-    <choice id="default" title="Pamplejuce">
-        <description>Install Pamplejuce and plugins</description>
+    <choice id="default" title="Select Plugins">
+        <description>Select which plugins to install.</description>
     </choice>
-    <choice id="app" visible="true" title="Application">
-        <pkg-ref id="com.pamplejuce.pamplejuce.app"/>
+    <choice id="app" visible="true" title="Standalone Application" selected="true">
+        <description>Install the standalone application.</description>
+        <pkg-ref id="com.pamplejuce.app"/>
     </choice>
-    <choice id="vst3" visible="true" title="VST3 Plugin">
-        <pkg-ref id="com.pamplejuce.pamplejuce.vst3"/>
+    <choice id="vst3" visible="true" title="VST3 Plugin" selected="true">
+        <description>Install the VST3 version of the plugin.</description>
+        <pkg-ref id="com.pamplejuce.vst3"/>
     </choice>
-    <choice id="au" visible="true" title="AU Plugin">
-        <pkg-ref id="com.pamplejuce.pamplejuce.au"/>
+    <choice id="au" visible="true" title="AU Plugin" selected="true">
+        <description>Install the AU version of the plugin.</description>
+        <pkg-ref id="com.pamplejuce.au"/>
     </choice>
-        <pkg-ref id="com.pamplejuce.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
-        <pkg-ref id="com.pamplejuce.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
-        <pkg-ref id="com.pamplejuce.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
+
+    <!-- Package references with consistent IDs -->
+    <pkg-ref id="com.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
 </installer-gui-script>
