@@ -6,15 +6,10 @@
     <license file="EULA.txt"/>
     <options customize="always" allow-external-scripts="no"/>
     <choices-outline>
-        <line choice="default">
-            <line choice="app"/>
-            <line choice="vst3"/>
-            <line choice="au"/>
-        </line>
+        <line choice="app"/>
+        <line choice="vst3"/>
+        <line choice="au"/>
     </choices-outline>
-    <choice id="default" title="Select Plugins">
-        <description>Select which plugins to install.</description>
-    </choice>
     <choice id="app" visible="true" title="Standalone Application" selected="true">
         <description>Install the standalone application.</description>
         <pkg-ref id="com.pamplejuce.app"/>
