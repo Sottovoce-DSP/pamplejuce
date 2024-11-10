@@ -23,6 +23,7 @@ public:
     bool hasEditor() const override;
 
     const juce::String getName() const override;
+    const juce::String getVersion() const;
 
     bool acceptsMidi() const override;
     bool producesMidi() const override;
