@@ -86,3 +86,4 @@ jobs:
             */*.exe
             */*.zip
             */*.dmg
+            */git_submodule_verions.txt
