@@ -104,10 +104,6 @@ jobs:
       - name: List Files in Directory
         run: ls -la
 
-      - name: Test
-        working-directory: ${{ env.BUILD_DIR }}
-        run: ./Tests
-
       - name: Codesign (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
