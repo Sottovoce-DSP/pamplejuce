@@ -180,8 +180,8 @@ jobs:
                       "packaging/PamplejuceAU-signed.pkg"
 
           # Remove the unsigned component packages
-          rm "packaging/${{ env.PRODUCT_NAME }}VST3.pkg"
-          rm "packaging/${{ env.PRODUCT_NAME }}AU.pkg"
+          rm "packaging/PamplejuceVST3.pkg"
+          rm "packaging/packaging/PamplejuceAU.pkg"
 
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
