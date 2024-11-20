@@ -1,0 +1,90 @@
+name: Build LAME Win Mac
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_lame:
+    strategy:
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    name: Build LAME on ${{ matrix.name }}
+    steps:
+
+      # Checkout code (required even if the repo is empty)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # macOS steps
+      - name: Download and extract LAME source code (macOS)
+        if: matrix.name == 'macOS'
+        run: |
+          curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+          tar -xzf lame-3.100.tar.gz
+
+      - name: Build LAME universal binary (macOS)
+        if: matrix.name == 'macOS'
+        working-directory: lame-3.100
+        run: |
+          export CFLAGS="-arch x86_64 -arch arm64"
+          export LDFLAGS="-arch x86_64 -arch arm64"
+          ./configure
+          make
+
+      - name: Package LAME executable (macOS)
+        if: matrix.name == 'macOS'
+        run: |
+          zip -j LAME-mac.zip lame-3.100/frontend/lame
+
+      - name: Upload artifact (macOS)
+        if: matrix.name == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAME-mac.zip
+          path: LAME-mac.zip
+
+      # Windows steps
+      - name: Install MSYS2 (Windows)
+        if: matrix.name == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+
+      - name: Install build tools (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
+        run: |
+          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
+
+      - name: Download and extract LAME source code (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
+        run: |
+          curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+          tar -xzf lame-3.100.tar.gz
+
+      - name: Build LAME (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
+        working-directory: lame-3.100
+        run: |
+          ./configure --host=x86_64-w64-mingw32
+          make
+
+      - name: Package LAME executable (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
+        run: |
+          zip -j LAME-win.zip lame-3.100/frontend/lame.exe
+
+      - name: Upload artifact (Windows)
+        if: matrix.name == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAME-win.zip
+          path: LAME-win.zip
