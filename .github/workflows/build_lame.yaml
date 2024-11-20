@@ -20,32 +20,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # macOS steps
-      - name: Download and extract LAME source code (macOS)
-        if: matrix.name == 'macOS'
+      # Common step: Download and extract LAME source code
+      - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      - name: Remove 'lame_init_old' line from 'include/libmp3lame.sym' (macOS)
-        if: matrix.name == 'macOS'
+      - name: Remove 'lame_init_old' line from 'include/libmp3lame.sym'
         working-directory: lame-3.100
         run: |
-          sed -i '' '/lame_init_old/d' include/libmp3lame.sym
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' '/lame_init_old/d' include/libmp3lame.sym
+          else
+            sed -i '/lame_init_old/d' include/libmp3lame.sym
+          fi
 
-      - name: Build LAME universal binary (macOS)
+      # macOS steps
+      - name: Install Ninja (macOS)
+        if: matrix.name == 'macOS'
+        run: brew install ninja
+
+      - name: Build LAME using CMake and Ninja (macOS)
         if: matrix.name == 'macOS'
         working-directory: lame-3.100
         run: |
-          export CFLAGS="-arch x86_64 -arch arm64"
-          export LDFLAGS="-arch x86_64 -arch arm64"
-          ./configure
-          make
+          mkdir build && cd build
+          # Generate build files with CMake
+          cmake -G Ninja -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" ..
+          # Build the project
+          ninja
 
       - name: Package LAME executable (macOS)
         if: matrix.name == 'macOS'
         run: |
-          zip -j LAME-mac.zip lame-3.100/frontend/lame
+          zip -j LAME-mac.zip lame-3.100/build/frontend/lame
 
       - name: Upload artifact (macOS)
         if: matrix.name == 'macOS'
@@ -55,45 +63,28 @@ jobs:
           path: LAME-mac.zip
 
       # Windows steps
-      - name: Install MSYS2 (Windows)
+      - name: Setup MSVC toolchain and developer command prompt (Windows)
         if: matrix.name == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
+        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install build tools (Windows)
+      - name: Install Ninja (Windows)
         if: matrix.name == 'Windows'
-        shell: msys2 {0}
-        run: |
-          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
+        run: choco install ninja
 
-      - name: Download and extract LAME source code (Windows)
+      - name: Build LAME using CMake and Ninja (Windows)
         if: matrix.name == 'Windows'
-        shell: msys2 {0}
-        run: |
-          curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
-          tar -xzf lame-3.100.tar.gz
-
-      - name: Remove 'lame_init_old' line from 'include/libmp3lame.sym' (Windows)
-        if: matrix.name == 'Windows'
-        shell: msys2 {0}
         working-directory: lame-3.100
         run: |
-          sed -i '/lame_init_old/d' include/libmp3lame.sym
-
-      - name: Build LAME (Windows)
-        if: matrix.name == 'Windows'
-        shell: msys2 {0}
-        working-directory: lame-3.100
-        run: |
-          ./configure --host=x86_64-w64-mingw32
-          make
+          mkdir build && cd build
+          # Generate build files with CMake
+          cmake -G Ninja ..
+          # Build the project
+          ninja
 
       - name: Package LAME executable (Windows)
         if: matrix.name == 'Windows'
-        shell: msys2 {0}
         run: |
-          zip -j LAME-win.zip lame-3.100/frontend/lame.exe
+          zip -j LAME-win.zip lame-3.100/build/frontend/Release/lame.exe
 
       - name: Upload artifact (Windows)
         if: matrix.name == 'Windows'
