@@ -27,6 +27,12 @@ jobs:
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
+      - name: Remove 'lame_init_old' line from 'include/libmp3lame.sym' (macOS)
+        if: matrix.name == 'macOS'
+        working-directory: lame-3.100
+        run: |
+          sed -i '' '/lame_init_old/d' include/libmp3lame.sym
+
       - name: Build LAME universal binary (macOS)
         if: matrix.name == 'macOS'
         working-directory: lame-3.100
@@ -67,6 +73,13 @@ jobs:
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
+
+      - name: Remove 'lame_init_old' line from 'include/libmp3lame.sym' (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
+        working-directory: lame-3.100
+        run: |
+          sed -i '/lame_init_old/d' include/libmp3lame.sym
 
       - name: Build LAME (Windows)
         if: matrix.name == 'Windows'
