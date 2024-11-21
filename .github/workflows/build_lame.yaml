@@ -43,22 +43,11 @@ jobs:
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      - name: Apply langinfo.h patch
+      # Create an empty "langinfo.h" file on Windows
+      - name: Create empty langinfo.h
         if: matrix.name == 'Windows'
         run: |
-          cd lame-3.100
-          patch -p1 <<'EOF'
-          --- frontend/parse.c
-          +++ frontend/parse.c
-          @@ -71,10 +71,12 @@
-          #include <string.h>
-          #include <ctype.h>
-          #include <errno.h>
-          +#ifndef _WIN32
-          #include <langinfo.h>
-          +#endif
-          #include <locale.h>
-          EOF
+          touch lame-3.100/include/langinfo.h
 
       - name: Remove 'lame_init_old' symbol
         run: |
