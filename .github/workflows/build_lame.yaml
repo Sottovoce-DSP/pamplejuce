@@ -19,7 +19,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
-
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,14 +42,16 @@ jobs:
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Create an empty "langinfo.h" file on Windows
-      - name: Create empty langinfo.h
-        if: matrix.name == 'Windows'
+      # Fix langinfo.h and configure issues
+      - name: Apply build fixes
         run: |
-          touch lame-3.100/include/langinfo.h
+          # Fix langinfo.h includes
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            sed -i 's/#ifdef HAVE_LANGINFO/#ifdef HAVE_LANGINFO_H/' lame-3.100/frontend/parse.c
+            sed -i 's/#include <langinfo.h>/#ifdef HAVE_LANGINFO_H\n#include <langinfo.h>\n#endif/' lame-3.100/frontend/parse.c
+          fi
 
-      - name: Remove 'lame_init_old' symbol
-        run: |
+          # Remove lame_init_old symbol
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             sed -i '' '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           else
