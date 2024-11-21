@@ -36,6 +36,7 @@ jobs:
         if: matrix.name == 'Windows'
         run: |
           pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
+        shell: msys2 {0}
 
       - name: Download and extract LAME source code
         run: |
