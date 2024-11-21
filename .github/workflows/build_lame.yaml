@@ -20,16 +20,22 @@ jobs:
     name: Build LAME on ${{ matrix.name }}
     steps:
 
-      # Checkout code (required even if the repo is empty)
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install necessary tools
+      # Install MSYS2 (Windows only)
+      - name: Set up MSYS2
+        if: matrix.name == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+
+      # Install build tools (Windows only)
       - name: Install build tools
         if: matrix.name == 'Windows'
         run: |
           pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
-        shell: msys2 {0}
 
       - name: Download and extract LAME source code
         run: |
