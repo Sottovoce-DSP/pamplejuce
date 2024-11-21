@@ -1,120 +1,72 @@
-#  ___                 _        _                ___ ___ 
-# | _ \__ _ _ __  _ __| |___ _ | |_  _ __ ___   / __|_ _|
-# |  _/ _` | '  \| '_ \ / -_) || | || / _/ -_) | (__ | | 
-# |_| \__,_|_|_|_| .__/_\___|\__/ \_,_\__\___|  \___|___|
-#                |_|                                     
-
 name: Build LAME Win Mac
 
-# [===================================================================]
-# [================ Global Variables Needed By Runner ================]
-# [===================================================================]
-
 on:
-  workflow_dispatch: # lets you run a build from the UI
-  #push:
-  #pull_request:
-
-# When pushing new commits, cancel any running builds on that branch
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  BUILD_TYPE: Release
-  BUILD_DIR: Builds
-  DISPLAY: :0 # linux pluginval needs this
-  HOMEBREW_NO_INSTALL_CLEANUP: 1
-  SCCACHE_GHA_ENABLED: true
-  SCCACHE_CACHE_MULTIARCH: 1
-  IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
+  workflow_dispatch:
 
 defaults:
   run:
     shell: bash
 
-# [======================================]
-# [================ Jobs ================]
-# [======================================]
-
 jobs:
-  build_and_test:
-    # don't double run on PRs
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+  build_lame:
     strategy:
-      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
           - name: macOS
-            os: macos-14
-            extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            os: macos-latest
           - name: Windows
             os: windows-latest
-
+    runs-on: ${{ matrix.os }}
+    name: Build LAME on ${{ matrix.name }}
     steps:
-
-      # [====================================================]
-      # [================ Setup Environments ================]
-      # [====================================================]
 
       # Checkout code (required even if the repo is empty)
       - name: Checkout code
         uses: actions/checkout@v4
 
-            # Download LAME source
-      - name: Download LAME Source
+      # Install necessary tools
+      - name: Install build tools
+        if: matrix.name == 'Windows'
         run: |
-          curl -L https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz -o lame.tar.gz
-          tar -xvf lame.tar.gz
-          mv lame-3.100 src
+          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
+        shell: msys2 {0}
 
-      # Remove 'lame_init_old' line from libmp3lame.sym
-      - name: Remove 'lame_init_old' from libmp3lame.sym
+      - name: Download and extract LAME source code
         run: |
-          sed -i.bak '/lame_init_old/d' src/include/libmp3lame.sym
+          curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+          tar -xzf lame-3.100.tar.gz
 
-      # Configure LAME Build
-      - name: Configure LAME Build
+      - name: Remove 'lame_init_old' symbol
         run: |
-          cd src
-          ./configure CFLAGS="-arch arm64 -arch x86_64" LDFLAGS="-arch arm64 -arch x86_64"
+          sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
 
-      # Build LAME
-      - name: Build LAME
+      - name: Build and install LAME
         run: |
-          cd src
-          make -j${{ env.NUMBER_OF_CORES }}
+          cd lame-3.100
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32
+          else
+            export CFLAGS="-arch x86_64 -arch arm64"
+            export LDFLAGS="-arch x86_64 -arch arm64"
+            ./configure --prefix=$HOME/lame-install
+          fi
+          make
+          make install
 
-      # [==================================================]
-      # [================ Upload Artifacts ================]
-      # [==================================================]
+      - name: Copy LAME binary to output
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp $HOME/lame-install/bin/lame.exe ./lame
+          else
+            cp $HOME/lame-install/bin/lame ./lame
+          fi
 
-      - name: Upload Build Artifacts
+      - name: Package LAME executable
+        run: |
+          zip -j LAME-${{ matrix.name }}.zip lame
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LAME-${{ matrix.name }}
-          path: ${{ env.BUILD_DIR }}/
-
-  # [=========================================]
-  # [================ Release ================]
-  # [=========================================]
-
-  release:
-    if: contains(github.ref, 'tags/v')
-    runs-on: ubuntu-latest
-    needs: build_and_test
-
-    steps:
-      - name: Get Artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          prerelease: true
-          files: |
-            */*.exe
-            */*.zip
-            */*.dmg
+          name: LAME-${{ matrix.name }}.zip
+          path: LAME-${{ matrix.name }}.zip
