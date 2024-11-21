@@ -42,13 +42,28 @@ jobs:
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Fix langinfo.h and configure issues
+      # Fix langinfo.h and other issues
       - name: Apply build fixes
         run: |
-          # Fix langinfo.h includes
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            sed -i 's/#ifdef HAVE_LANGINFO/#ifdef HAVE_LANGINFO_H/' lame-3.100/frontend/parse.c
-            sed -i 's/#include <langinfo.h>/#ifdef HAVE_LANGINFO_H\n#include <langinfo.h>\n#endif/' lame-3.100/frontend/parse.c
+            # Create a minimal langinfo.h with required definitions
+            cat > lame-3.100/include/langinfo.h << 'EOL'
+            #ifndef _LANGINFO_H
+            #define _LANGINFO_H
+
+            #define CODESET 1
+            static inline char* nl_langinfo(int item) {
+                return "UTF-8";  // Default to UTF-8 on Windows
+            }
+
+            #endif
+            EOL
+
+            # Update include path in configure
+            sed -i 's|^INCLUDES = .*|INCLUDES = -I$(top_srcdir)/include -I$(srcdir)|' lame-3.100/frontend/Makefile.in
+
+            # Fix langinfo.h includes in parse.c
+            sed -i 's|#include <langinfo.h>|#include "langinfo.h"|' lame-3.100/frontend/parse.c
           fi
 
           # Remove lame_init_old symbol
@@ -62,7 +77,7 @@ jobs:
         run: |
           cd lame-3.100
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32
+            CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32
           else
             export CFLAGS="-arch x86_64 -arch arm64"
             export LDFLAGS="-arch x86_64 -arch arm64"
