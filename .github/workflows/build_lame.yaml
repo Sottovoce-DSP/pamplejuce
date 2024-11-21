@@ -47,7 +47,7 @@ jobs:
       - name: Apply langinfo.h patch
         if: matrix.name == 'Windows'
         run: |
-          cat <<'EOF' > langinfo_patch.diff
+          patch -p1 <<'EOF'
           --- lame-3.100/frontend/parse.c
           +++ lame-3.100/frontend/parse.c
           @@ -71,10 +71,12 @@
@@ -59,7 +59,6 @@ jobs:
           +#endif
           #include <locale.h>
           EOF
-          patch -p0 < langinfo_patch.diff
 
       - name: Remove 'lame_init_old' symbol
         run: |
