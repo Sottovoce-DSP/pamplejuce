@@ -46,23 +46,20 @@ jobs:
       - name: Apply build fixes
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Create a minimal langinfo.h with required definitions
-            cat > lame-3.100/include/langinfo.h << 'EOL'
-            #ifndef _LANGINFO_H
-            #define _LANGINFO_H
+            # Create directory for include
+            mkdir -p lame-3.100/include
+            
+            # Create langinfo.h file
+            echo "#ifndef _LANGINFO_H" > lame-3.100/include/langinfo.h
+            echo "#define _LANGINFO_H" >> lame-3.100/include/langinfo.h
+            echo "#define CODESET 1" >> lame-3.100/include/langinfo.h
+            echo "static inline char* nl_langinfo(int item) {" >> lame-3.100/include/langinfo.h
+            echo "    return \"UTF-8\";" >> lame-3.100/include/langinfo.h
+            echo "}" >> lame-3.100/include/langinfo.h
+            echo "#endif" >> lame-3.100/include/langinfo.h
 
-            #define CODESET 1
-            static inline char* nl_langinfo(int item) {
-                return "UTF-8";  // Default to UTF-8 on Windows
-            }
-
-            #endif
-            EOL
-
-            # Update include path in configure
+            # Fix include paths
             sed -i 's|^INCLUDES = .*|INCLUDES = -I$(top_srcdir)/include -I$(srcdir)|' lame-3.100/frontend/Makefile.in
-
-            # Fix langinfo.h includes in parse.c
             sed -i 's|#include <langinfo.h>|#include "langinfo.h"|' lame-3.100/frontend/parse.c
           fi
 
