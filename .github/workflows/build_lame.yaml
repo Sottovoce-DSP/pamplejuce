@@ -43,13 +43,13 @@ jobs:
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Apply patch for Windows
       - name: Apply langinfo.h patch
         if: matrix.name == 'Windows'
         run: |
+          cd lame-3.100
           patch -p1 <<'EOF'
-          --- lame-3.100/frontend/parse.c
-          +++ lame-3.100/frontend/parse.c
+          --- frontend/parse.c
+          +++ frontend/parse.c
           @@ -71,10 +71,12 @@
           #include <string.h>
           #include <ctype.h>
