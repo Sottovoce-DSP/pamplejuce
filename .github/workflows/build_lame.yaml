@@ -1,4 +1,4 @@
-name: Build LAME Win Mac
+name: Build LAME Win Mac Linux
 
 on:
   workflow_dispatch:
@@ -27,6 +27,10 @@ jobs:
             arch: x64
             filename: lame64.exe
             zipname: LAME-windows64.zip
+          - name: Linux
+            os: ubuntu-22.04
+            filename: lame
+            zipname: LAME-linux.zip
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
@@ -81,6 +85,17 @@ jobs:
           make
           make install
       
+      # Linux build
+      - name: Build and install LAME (Linux)
+        if: matrix.name == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          cd lame-3.100
+          ./configure --prefix=$HOME/lame-install
+          make
+          make install
+      
       # Copy binary to output
       - name: Copy LAME binary to output
         run: |
@@ -103,9 +118,9 @@ jobs:
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}"
       
-      # Package executable (macOS)
-      - name: Package LAME executable (macOS)
-        if: matrix.name == 'macOS'
+      # Package executable (macOS and Linux)
+      - name: Package LAME executable (macOS and Linux)
+        if: matrix.name != 'Windows'
         run: |
           cd output
           zip -j ../${{ matrix.zipname }} *
