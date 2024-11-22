@@ -177,5 +177,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.zipname }}
-          path: ${{ matrix.zipname }}
+          name: ${{ matrix.zipname }}.zip
+          path: ${{ matrix.zipname }}.zip
