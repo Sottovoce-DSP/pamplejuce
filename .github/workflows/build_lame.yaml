@@ -23,55 +23,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install MSYS2 (Windows only)
-      - name: Set up MSYS2
-        if: matrix.name == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: >-
-            base-devel
-            mingw-w64-x86_64-toolchain
-
       - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Create langinfo.h for Windows
-      - name: Create langinfo.h
-        if: matrix.name == 'Windows'
-        shell: msys2 {0}
-        run: |
-          mkdir -p lame-3.100/include
-          cat > lame-3.100/include/langinfo.h << 'EOL'
-          #ifndef _LANGINFO_H
-          #define _LANGINFO_H
-          #define CODESET 1
-          static inline char* nl_langinfo(int item) {
-              return "UTF-8";
-          }
-          #endif
-          EOL
-
-      # Remove lame_init_old symbol
-      - name: Remove deprecated symbol
-        run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            sed -i '' '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
-          else
-            sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
-          fi
-
       # Build LAME (Windows)
       - name: Build LAME (Windows)
         if: matrix.name == 'Windows'
-        shell: msys2 {0}
+        shell: cmd
         run: |
           cd lame-3.100
-          CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --disable-brhist --enable-decoder --enable-mp3x --enable-mp3rtp
-          make
-          make install
+          copy configMS.h config.h
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          nmake -f Makefile.MSVC comp=msvc asm=no
 
       # Build LAME (macOS)
       - name: Build LAME (macOS)
@@ -80,14 +45,14 @@ jobs:
           cd lame-3.100
           export CFLAGS="-arch x86_64 -arch arm64"
           export LDFLAGS="-arch x86_64 -arch arm64"
-          ./configure --prefix=$HOME/lame-install --disable-brhist --enable-decoder --enable-mp3x --enable-mp3rtp
+          ./configure --prefix=$HOME/lame-install
           make
           make install
 
       - name: Copy LAME binary to output
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp $HOME/lame-install/bin/lame.exe ./lame
+            cp lame-3.100/output/*.exe ./lame
           else
             cp $HOME/lame-install/bin/lame ./lame
           fi
