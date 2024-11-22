@@ -20,12 +20,12 @@ jobs:
           - name: Windows-x86
             os: windows-latest
             arch: x86
-            filename: lame32
+            filename: lame32.exe
             zipname: LAME-windows32.zip
           - name: Windows-x64
             os: windows-latest
             arch: x64
-            filename: lame64
+            filename: lame64.exe
             zipname: LAME-windows64.zip
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
@@ -86,11 +86,16 @@ jobs:
         run: |
           mkdir -p output
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/output/lame.exe ./output/${{ matrix.filename }}.exe
+            cp lame-3.100/output/lame.exe ./output/${{ matrix.filename }}
           else
             cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
           fi
       
+      # Test LAME binary
+      - name: Test LAME binary
+        run: |
+          ./output/${{ matrix.filename }} --help
+
       # Package executable (Windows)
       - name: Package LAME executable (Windows)
         if: contains(matrix.name, 'Windows')
