@@ -10,7 +10,7 @@ defaults:
 jobs:
   build_lame:
     strategy:
-      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
+      fail-fast: false
       matrix:
         include:
           - name: macOS
@@ -51,7 +51,7 @@ jobs:
         if: contains(matrix.name, 'Windows')
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch }}
+          arch: ${{ matrix.msvc_arch }}
       
       # Windows-specific MSVC build
       - name: Build LAME with MSVC (Windows)
@@ -60,7 +60,7 @@ jobs:
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.arch }}
+          nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.nmake_machine }}
       
       # macOS build
       - name: Build and install LAME (macOS)
