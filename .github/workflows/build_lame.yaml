@@ -23,23 +23,50 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Windows-specific setup
+      - name: Set up MSYS2 (Windows)
+        if: matrix.name == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-nasm
+            base-devel
+            git
+
+      # Download and extract LAME source
       - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Build LAME (Windows)
-      - name: Build LAME (Windows)
+      # Remove deprecated symbol
+      - name: Remove 'lame_init_old' symbol
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
+          else
+            sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
+          fi
+
+      # Build and install LAME
+      - name: Build and install LAME (Windows)
         if: matrix.name == 'Windows'
-        shell: cmd
+        shell: msys2 {0}
         run: |
           cd lame-3.100
-          copy configMS.h config.h
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          nmake -f Makefile.MSVC comp=msvc asm=no
-
-      # Build LAME (macOS)
-      - name: Build LAME (macOS)
+          ./configure \
+            --prefix=/mingw64 \
+            --enable-nasm \
+            --disable-shared \
+            --enable-static \
+            CFLAGS="-O3 -march=x86-64 -mtune=generic"
+          make -j$(nproc)
+          make install DESTDIR=$GITHUB_WORKSPACE/lame-install
+          
+      - name: Build and install LAME (macOS)
         if: matrix.name == 'macOS'
         run: |
           cd lame-3.100
@@ -49,18 +76,24 @@ jobs:
           make
           make install
 
+      # Copy binary to output
       - name: Copy LAME binary to output
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/output/*.exe ./lame
+            mkdir -p output
+            cp $GITHUB_WORKSPACE/lame-install/mingw64/bin/lame.exe ./output/
           else
-            cp $HOME/lame-install/bin/lame ./lame
+            mkdir -p output
+            cp $HOME/lame-install/bin/lame ./output/
           fi
 
+      # Package executable
       - name: Package LAME executable
         run: |
-          zip -j LAME-${{ matrix.name }}.zip lame
+          cd output
+          zip -j ../LAME-${{ matrix.name }}.zip *
 
+      # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
