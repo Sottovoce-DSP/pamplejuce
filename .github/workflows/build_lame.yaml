@@ -122,25 +122,25 @@ jobs:
           p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
 
       # Codesign (macOS)
-      - name: Codesign (macOS)
+      - name: Codesign binary (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION }}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
       # Package executable into PKG (macOS)
       - name: Package LAME executable into PKG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
           # Create the installation path structure
-          mkdir -p installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio
-          cp "./output/${{ matrix.filename }}" installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio/lame
-          chmod +x installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio/lame
+          mkdir -p installer_root/Library/Application\ Support/SpeedShift\ Studio
+          cp "./output/${{ matrix.filename }}" installer_root/Library/Application\ Support/SpeedShift\ Studio/lame
+          chmod +x installer_root/Library/Application\ Support/SpeedShift\ Studio/lame
 
           # Build the PKG
           pkgbuild --identifier "com.pamplejuce.lame" \
                   --version "3.100" \
                   --root installer_root \
-                  --install-location "/" \
+                  --install-location "/Library/Application Support/SpeedShift Studio" \
                   "LAME-macOSX.pkg"
           rm -rf installer_root
 
