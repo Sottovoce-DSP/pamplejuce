@@ -133,6 +133,7 @@ jobs:
         run: |
           mkdir dmg_content
           cp ./output/${{ matrix.filename }} dmg_content/
+          echo "This is the LAME MP3 encoder. Install the binary to a directory in your PATH." > dmg_content/README.txt
           hdiutil create -volname "LAME" -srcfolder dmg_content -ov -format UDZO "LAME-macOSX.dmg"
           rm -r dmg_content
 
