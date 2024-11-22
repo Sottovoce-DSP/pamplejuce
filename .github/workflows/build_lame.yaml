@@ -34,7 +34,7 @@ jobs:
       - name: Install build tools
         if: matrix.name == 'Windows'
         run: |
-          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain autoconf automake libtool
+          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
         shell: msys2 {0}
 
       - name: Download and extract LAME source code
@@ -58,8 +58,21 @@ jobs:
             echo "}" >> lame-3.100/include/langinfo.h
             echo "#endif" >> lame-3.100/include/langinfo.h
 
+            # Create version.h file
+            echo "#ifndef LAME_VERSION_H" > lame-3.100/include/version.h
+            echo "#define LAME_VERSION_H" >> lame-3.100/include/version.h
+            echo "#define LAME_URL \"http://lame.sourceforge.net\"" >> lame-3.100/include/version.h
+            echo "#define LAME_VERSION \"3.100\"" >> lame-3.100/include/version.h
+            echo "#define LAME_MAJOR_VERSION 3" >> lame-3.100/include/version.h
+            echo "#define LAME_MINOR_VERSION 100" >> lame-3.100/include/version.h
+            echo "#define LAME_TYPE_VERSION 0" >> lame-3.100/include/version.h
+            echo "#define LAME_PATCH_VERSION 0" >> lame-3.100/include/version.h
+            echo "#define LAME_ALPHA_VERSION 0" >> lame-3.100/include/version.h
+            echo "#define LAME_BETA_VERSION 0" >> lame-3.100/include/version.h
+            echo "#endif" >> lame-3.100/include/version.h
+
             # Fix include paths
-            sed -i 's|^INCLUDES = .*|INCLUDES = -I$(top_srcdir)/include -I$(srcdir) -I$(top_builddir)/include|' lame-3.100/frontend/Makefile.in
+            sed -i 's|^INCLUDES = .*|INCLUDES = -I$(top_srcdir)/include -I$(srcdir)|' lame-3.100/frontend/Makefile.in
             sed -i 's|#include <langinfo.h>|#include "langinfo.h"|' lame-3.100/frontend/parse.c
           fi
 
@@ -74,22 +87,14 @@ jobs:
         run: |
           cd lame-3.100
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Regenerate configure script and Makefiles
-            ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32 CPPFLAGS="-I$PWD/include -I$PWD"
-            
-            # Force regeneration of version.h
-            make -C include version.h
-
-            # Now build everything
-            make
-            make install
+            CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32
           else
             export CFLAGS="-arch x86_64 -arch arm64"
             export LDFLAGS="-arch x86_64 -arch arm64"
             ./configure --prefix=$HOME/lame-install
-            make
-            make install
           fi
+          make
+          make install
 
       - name: Copy LAME binary to output
         run: |
