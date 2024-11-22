@@ -127,6 +127,19 @@ jobs:
         run: |
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
+      # Package executable (macOS)
+      - name: Package LAME executable (macOS)
+        if: contains(matrix.name, 'macOS') || contains(matrix.name, 'Linux')
+        run: |
+          cd output
+          zip -j ../${{ matrix.zipname }}.zip *
+          cd ..
+
+      # Notarize and staple the zip
+      - name: Notarize and staple  Certificates (macOS)
+          xcrun notarytool submit "${{ matrix.zipname }}.zip" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "${{ matrix.zipname }}.zip"
+
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
         if: contains(matrix.name, 'Windows')
@@ -160,13 +173,6 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}.zip"
-
-      # Package executable (macOS)
-      - name: Package LAME executable (macOS)
-        if: contains(matrix.name, 'macOS') || contains(matrix.name, 'Linux')
-        run: |
-          cd output
-          zip -j ../${{ matrix.zipname }}.zip *
       
       # Upload artifact
       - name: Upload artifact
