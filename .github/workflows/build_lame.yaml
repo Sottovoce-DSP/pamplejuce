@@ -23,19 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Windows-specific setup
-      - name: Set up MSYS2 (Windows)
-        if: matrix.name == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-nasm
-            base-devel
-            git
-
       # Download and extract LAME source
       - name: Download and extract LAME source code
         run: |
@@ -51,21 +38,17 @@ jobs:
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
 
-      # Build and install LAME
-      - name: Build and install LAME (Windows)
+      # Windows-specific MSVC build
+      - name: Build LAME with MSVC (Windows)
         if: matrix.name == 'Windows'
-        shell: msys2 {0}
+        shell: cmd
         run: |
           cd lame-3.100
-          ./configure \
-            --prefix=/mingw64 \
-            --enable-nasm \
-            --disable-shared \
-            --enable-static \
-            CFLAGS="-O3 -march=x86-64 -mtune=generic"
-          make -j$(nproc)
-          make install DESTDIR=$GITHUB_WORKSPACE/lame-install
-          
+          copy configMS.h config.h
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          nmake -f Makefile.MSVC comp=msvc asm=no
+
+      # macOS build
       - name: Build and install LAME (macOS)
         if: matrix.name == 'macOS'
         run: |
@@ -79,11 +62,10 @@ jobs:
       # Copy binary to output
       - name: Copy LAME binary to output
         run: |
+          mkdir -p output
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            mkdir -p output
-            cp $GITHUB_WORKSPACE/lame-install/mingw64/bin/lame.exe ./output/
+            cp lame-3.100/output/lame.exe ./output/
           else
-            mkdir -p output
             cp $HOME/lame-install/bin/lame ./output/
           fi
 
