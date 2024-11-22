@@ -127,27 +127,33 @@ jobs:
         run: |
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
-      # Package executable (macOS)
-      - name: Package LAME executable (macOS)
+      # Package executable into DMG (macOS)
+      - name: Package LAME executable into DMG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
           mkdir dmg_content
           cp ./output/${{ matrix.filename }} dmg_content/
-          hdiutil create -volname "LAME" -srcfolder dmg_content -ov -format UDZO "${{ matrix.zipname }}.dmg"
+          hdiutil create -volname "LAME" -srcfolder dmg_content -ov -format UDZO "LAME-macOSX.dmg"
           rm -r dmg_content
 
-      # Notarize and staple the dmg
+      # Code-sign the DMG (macOS)
+      - name: Code-sign the DMG (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION }}" --timestamp --options runtime "LAME-macOSX.dmg"
+
+      # Notarize and staple the DMG (macOS)
       - name: Notarize and staple Certificates (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          xcrun notarytool submit "${{ matrix.zipname }}.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "${{ matrix.zipname }}.dmg"
+          xcrun notarytool submit "LAME-macOSX.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "LAME-macOSX.dmg"
 
-      # Verify the stapled DMG
+      # Verify the stapled DMG (macOS)
       - name: Verify stapled DMG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          spctl -a -t exec -vv "${{ matrix.zipname }}.dmg"
+          spctl -a -t exec -vv "LAME-macOSX.dmg"
 
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
@@ -183,8 +189,17 @@ jobs:
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}.zip"
       
-      # Upload artifact
-      - name: Upload artifact
+      # Upload artifact for macOS
+      - name: Upload artifact for macOS
+        if: contains(matrix.name, 'macOS')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.zipname }}
+          path: ${{ matrix.zipname }}.dmg
+
+      # Upload artifact for Windows/Linux
+      - name: Upload artifact for Windows/Linux
+        if: ${{ !contains(matrix.name, 'macOS') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.zipname }}
