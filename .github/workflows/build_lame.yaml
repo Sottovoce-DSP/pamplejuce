@@ -130,18 +130,18 @@ jobs:
       - name: Codesign (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
       # Notarize and Staple (macOS)
       - name: Notarize and Staple (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          xcrun notarytool submit "${{ matrix.filename }}" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "${{ matrix.filename }}"
+          xcrun notarytool submit "./output/${{ matrix.filename }}" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "./output/${{ matrix.filename }}"
 
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
-        if: ${{ matrix.name == 'Windows' }}
+        if: contains(matrix.name, 'Windows')
         uses: azure/trusted-signing-action@v0.4.0
         with:
           # The Azure Active Directory tenant (directory) ID.
