@@ -129,18 +129,25 @@ jobs:
 
       # Package executable (macOS)
       - name: Package LAME executable (macOS)
-        if: contains(matrix.name, 'macOS') || contains(matrix.name, 'Linux')
-        run: |
-          cd output
-          zip -j ../${{ matrix.zipname }}.zip *
-          cd ..
-
-      # Notarize and staple the zip
-      - name: Notarize and staple  Certificates (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          xcrun notarytool submit "${{ matrix.zipname }}.zip" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "${{ matrix.zipname }}.zip"
+          mkdir dmg_content
+          cp ./output/${{ matrix.filename }} dmg_content/
+          hdiutil create -volname "LAME" -srcfolder dmg_content -ov -format UDZO "${{ matrix.zipname }}.dmg"
+          rm -r dmg_content
+
+      # Notarize and staple the dmg
+      - name: Notarize and staple Certificates (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          xcrun notarytool submit "${{ matrix.zipname }}.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "${{ matrix.zipname }}.dmg"
+
+      # Verify the stapled DMG
+      - name: Verify stapled DMG (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          spctl -a -t exec -vv "${{ matrix.zipname }}.dmg"
 
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
