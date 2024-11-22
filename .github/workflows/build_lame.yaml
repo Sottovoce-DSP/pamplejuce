@@ -91,8 +91,16 @@ jobs:
             cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
           fi
       
-      # Package executable
-      - name: Package LAME executable
+      # Package executable (Windows)
+      - name: Package LAME executable (Windows)
+        if: contains(matrix.name, 'Windows')
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}"
+      
+      # Package executable (macOS)
+      - name: Package LAME executable (macOS)
+        if: matrix.name == 'macOS'
         run: |
           cd output
           zip -j ../${{ matrix.zipname }} *
