@@ -10,6 +10,8 @@ defaults:
 jobs:
   build_lame:
     strategy:
+    strategy:
+      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
           - name: macOS
