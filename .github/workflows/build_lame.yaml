@@ -127,36 +127,47 @@ jobs:
         run: |
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
-      # Package executable into DMG (macOS)
-      # Normally you would include this in your release packaging process
-      - name: Package LAME executable into DMG (macOS)
+      # Package executable into PKG (macOS)
+      - name: Package LAME executable into PKG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          mkdir dmg_content
-          cp ./output/${{ matrix.filename }} dmg_content/
-          echo "This is the LAME MP3 encoder. Copy the binary to a directory in your PATH (e.g., /usr/local/bin)." > dmg_content/README.txt
-          ln -s /Applications dmg_content/Applications
-          hdiutil create -volname "LAME Encoder" -srcfolder dmg_content -ov -format UDZO "LAME-macOSX.dmg"
-          rm -r dmg_content
+          # Create the installation path structure
+          mkdir -p installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio
+          cp "./output/${{ matrix.filename }}" installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio/lame
+          chmod +x installer_root/$(eval echo ~)/Library/Application\ Support/SpeedShift\ Studio/lame
 
-      # Code-sign the DMG (macOS)
-      - name: Code-sign the DMG (macOS)
+          # Build the PKG
+          pkgbuild --identifier "com.pamplejuce.lame" \
+                  --version "3.100" \
+                  --root installer_root \
+                  --install-location "/" \
+                  "LAME-macOSX.pkg"
+          rm -rf installer_root
+
+      # Code-sign the PKG (macOS)
+      - name: Code-sign the PKG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION }}" --timestamp --options runtime "LAME-macOSX.dmg"
+          productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
+                      "LAME-macOSX.pkg" \
+                      "LAME-macOSX-signed.pkg"
 
-      # Notarize and staple the DMG (macOS)
+      # Notarize and staple the PKG (macOS)
       - name: Notarize and staple Certificates (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          xcrun notarytool submit "LAME-macOSX.dmg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "LAME-macOSX.dmg"
+          xcrun notarytool submit "LAME-macOSX-signed.pkg" \
+              --apple-id ${{ secrets.NOTARIZATION_USERNAME }} \
+              --password ${{ secrets.NOTARIZATION_PASSWORD }} \
+              --team-id ${{ secrets.TEAM_ID }} \
+              --wait
+          xcrun stapler staple "LAME-macOSX-signed.pkg"
 
-      # Verify the stapled DMG (macOS)
-      - name: Verify stapled DMG (macOS)
+      # Verify the stapled PKG (macOS)
+      - name: Verify stapled PKG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          spctl -a -t exec -vv "LAME-macOSX.dmg"
+          spctl -a -t install -vv "LAME-macOSX-signed.pkg"
 
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
