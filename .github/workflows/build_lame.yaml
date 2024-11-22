@@ -137,6 +137,7 @@ jobs:
 
       # Notarize and staple the zip
       - name: Notarize and staple  Certificates (macOS)
+        run: |
           xcrun notarytool submit "${{ matrix.zipname }}.zip" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
           xcrun stapler staple "${{ matrix.zipname }}.zip"
 
