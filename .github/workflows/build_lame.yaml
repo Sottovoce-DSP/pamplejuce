@@ -106,10 +106,16 @@ jobs:
             cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
           fi
       
-      # Test LAME binary
       - name: Test LAME binary
         run: |
-          ./output/${{ matrix.filename }} --help
+          output=$(./output/${{ matrix.filename }} --help)
+          echo "$output" # Print the output for visibility
+          if echo "$output" | grep -q "version 3.100"; then
+            echo "Version check passed."
+          else
+            echo "Expected 'version 3.100' in output."
+            exit 1
+          fi
 
       # Package executable (Windows)
       - name: Package LAME executable (Windows)
