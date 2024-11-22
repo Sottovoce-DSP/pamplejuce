@@ -29,70 +29,42 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-
-      # Install build tools (Windows only)
-      - name: Install build tools
-        if: matrix.name == 'Windows'
-        run: |
-          pacman -Sy --noconfirm --needed base-devel mingw-w64-x86_64-toolchain
-        shell: msys2 {0}
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
 
       - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
 
-      # Fix langinfo.h and other issues
-      - name: Apply build fixes
+      # Remove lame_init_old symbol (this is still needed for both platforms)
+      - name: Remove deprecated symbol
         run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Create directory for include
-            mkdir -p lame-3.100/include
-            
-            # Create langinfo.h file
-            echo "#ifndef _LANGINFO_H" > lame-3.100/include/langinfo.h
-            echo "#define _LANGINFO_H" >> lame-3.100/include/langinfo.h
-            echo "#define CODESET 1" >> lame-3.100/include/langinfo.h
-            echo "static inline char* nl_langinfo(int item) {" >> lame-3.100/include/langinfo.h
-            echo "    return \"UTF-8\";" >> lame-3.100/include/langinfo.h
-            echo "}" >> lame-3.100/include/langinfo.h
-            echo "#endif" >> lame-3.100/include/langinfo.h
-
-            # Create version.h file
-            echo "#ifndef LAME_VERSION_H" > lame-3.100/include/version.h
-            echo "#define LAME_VERSION_H" >> lame-3.100/include/version.h
-            echo "#define LAME_URL \"http://lame.sourceforge.net\"" >> lame-3.100/include/version.h
-            echo "#define LAME_VERSION \"3.100\"" >> lame-3.100/include/version.h
-            echo "#define LAME_MAJOR_VERSION 3" >> lame-3.100/include/version.h
-            echo "#define LAME_MINOR_VERSION 100" >> lame-3.100/include/version.h
-            echo "#define LAME_TYPE_VERSION 0" >> lame-3.100/include/version.h
-            echo "#define LAME_PATCH_VERSION 0" >> lame-3.100/include/version.h
-            echo "#define LAME_ALPHA_VERSION 0" >> lame-3.100/include/version.h
-            echo "#define LAME_BETA_VERSION 0" >> lame-3.100/include/version.h
-            echo "#endif" >> lame-3.100/include/version.h
-
-            # Fix include paths
-            sed -i 's|^INCLUDES = .*|INCLUDES = -I$(top_srcdir)/include -I$(srcdir)|' lame-3.100/frontend/Makefile.in
-            sed -i 's|#include <langinfo.h>|#include "langinfo.h"|' lame-3.100/frontend/parse.c
-          fi
-
-          # Remove lame_init_old symbol
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             sed -i '' '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           else
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
 
-      - name: Build and install LAME
+      # Build LAME (Windows)
+      - name: Build LAME (Windows)
+        if: matrix.name == 'Windows'
+        shell: msys2 {0}
         run: |
           cd lame-3.100
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --host=x86_64-w64-mingw32
-          else
-            export CFLAGS="-arch x86_64 -arch arm64"
-            export LDFLAGS="-arch x86_64 -arch arm64"
-            ./configure --prefix=$HOME/lame-install
-          fi
+          ./configure --prefix=$HOME/lame-install
+          make
+          make install
+
+      # Build LAME (macOS)
+      - name: Build LAME (macOS)
+        if: matrix.name == 'macOS'
+        run: |
+          cd lame-3.100
+          export CFLAGS="-arch x86_64 -arch arm64"
+          export LDFLAGS="-arch x86_64 -arch arm64"
+          ./configure --prefix=$HOME/lame-install
           make
           make install
 
