@@ -18,26 +18,25 @@ jobs:
             exe_name: lame
           - name: Windows-x86
             os: windows-latest
-            arch: x86
+            msvc_arch: x86
+            nmake_machine: I386
             exe_name: lame32.exe
           - name: Windows-x64
             os: windows-latest
-            arch: x64
+            msvc_arch: x64
+            nmake_machine: AMD64
             exe_name: lame64.exe
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
-      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Download and extract LAME source
       - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
       
-      # Remove deprecated symbol
       - name: Remove 'lame_init_old' symbol
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
@@ -46,23 +45,17 @@ jobs:
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
       
-      # Setup MSVC toolchain (Windows)
-      - name: Setup MSVC
+      - name: Build LAME with MSVC (Windows)
         if: contains(matrix.name, 'Windows')
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc_arch }}
-      
-      # Windows-specific MSVC build
-      - name: Build LAME with MSVC (Windows)
-        if: contains(matrix.name, 'Windows')
+          run: |
+            cd lame-3.100
+            copy configMS.h config.h
+            nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.nmake_machine }}
         shell: cmd
-        run: |
-          cd lame-3.100
-          copy configMS.h config.h
-          nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.nmake_machine }}
       
-      # macOS build
       - name: Build and install LAME (macOS)
         if: matrix.name == 'macOS'
         run: |
@@ -73,7 +66,6 @@ jobs:
           make
           make install
       
-      # Copy and rename binary to output
       - name: Copy and rename LAME binary to output
         run: |
           mkdir -p output
@@ -83,21 +75,18 @@ jobs:
             cp $HOME/lame-install/bin/lame "./output/${{ matrix.exe_name }}"
           fi
       
-      # Package executable (Windows)
       - name: Package LAME executable (Windows)
         if: contains(matrix.name, 'Windows')
         shell: pwsh
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "LAME-${{ matrix.name }}.zip"
       
-      # Package executable (macOS)
       - name: Package LAME executable (macOS)
         if: matrix.name == 'macOS'
         run: |
           cd output
           zip -j ../LAME-${{ matrix.name }}.zip *
       
-      # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
