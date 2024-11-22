@@ -106,6 +106,7 @@ jobs:
             cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
           fi
       
+      # Test the LAME binary
       - name: Test LAME binary
         run: |
           output=$(./output/${{ matrix.filename }} --help)
@@ -116,6 +117,54 @@ jobs:
             echo "Expected 'version 3.100' in output."
             exit 1
           fi
+
+      # Import certificates (macOS)
+      - name: Import Certificates (macOS)
+        uses: apple-actions/import-codesign-certs@v3
+        if: ${{ matrix.name == 'macOS' }}
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
+          p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
+
+      # Codesign (macOS)
+      - name: Codesign (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
+
+      # Notarize and Staple (macOS)
+      - name: Notarize and Staple (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          xcrun notarytool submit "${{ matrix.filename }}" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
+          xcrun stapler staple "${{ matrix.filename }}"
+
+      # Codesign with Azure Trusted Signing (Windows)
+      - name: Codesign with Azure Trusted Signing
+        if: ${{ matrix.name == 'Windows' }}
+        uses: azure/trusted-signing-action@v0.4.0
+        with:
+          # The Azure Active Directory tenant (directory) ID.
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+          # The client (application) ID of an App Registration in the tenant.
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+          # A client secret that was generated for the App Registration.
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+          # The Code Signing Account endpoint. The URI value must have a URI that aligns to the region your Code Signing Account and Certificate Profile you are specifying were created in during the setup of these resources.
+          endpoint: ${{ secrets.AZURE_ENDPOINT }}
+
+          # The Code Signing Account name.
+          trusted-signing-account-name: ${{ secrets.AZURE_CODE_SIGNING_NAME }}
+
+          # The Certificate Profile name.
+          certificate-profile-name: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
+
+          # This signs all exes inside the folder
+          files-folder: ./output
+          files-folder-filter: exe
 
       # Package executable (Windows)
       - name: Package LAME executable (Windows)
