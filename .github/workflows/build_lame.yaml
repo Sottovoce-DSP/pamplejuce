@@ -222,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.zipname }}
-          path: ${{ matrix.zipname }}.dmg
+          path: ${{ matrix.zipname }}.pkg
 
       # Upload artifact for Windows/Linux
       - name: Upload artifact for Windows/Linux
