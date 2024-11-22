@@ -128,13 +128,15 @@ jobs:
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
       # Package executable into DMG (macOS)
+      # Normally you would include this in your release packaging process
       - name: Package LAME executable into DMG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
           mkdir dmg_content
           cp ./output/${{ matrix.filename }} dmg_content/
-          echo "This is the LAME MP3 encoder. Install the binary to a directory in your PATH." > dmg_content/README.txt
-          hdiutil create -volname "LAME" -srcfolder dmg_content -ov -format UDZO "LAME-macOSX.dmg"
+          echo "This is the LAME MP3 encoder. Copy the binary to a directory in your PATH (e.g., /usr/local/bin)." > dmg_content/README.txt
+          ln -s /Applications dmg_content/Applications
+          hdiutil create -volname "LAME Encoder" -srcfolder dmg_content -ov -format UDZO "LAME-macOSX.dmg"
           rm -r dmg_content
 
       # Code-sign the DMG (macOS)
