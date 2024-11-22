@@ -118,9 +118,9 @@ jobs:
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}"
       
-      # Package executable (macOS and Linux)
-      - name: Package LAME executable (macOS and Linux)
-        if: matrix.name != 'Windows'
+      # Package executable (macOS)
+      - name: Package LAME executable (macOS)
+        if: {{matrix.name == 'macOS' || matrix.name == 'Linux'}}
         run: |
           cd output
           zip -j ../${{ matrix.zipname }} *
