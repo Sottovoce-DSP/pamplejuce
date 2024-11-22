@@ -16,21 +16,21 @@ jobs:
           - name: macOS
             os: macos-latest
             filename: lame
-            zipname: LAME-macOSX.zip
+            zipname: LAME-macOSX
           - name: Windows-x86
             os: windows-latest
             arch: x86
             filename: lame32.exe
-            zipname: LAME-windows32.zip
+            zipname: LAME-windows32
           - name: Windows-x64
             os: windows-latest
             arch: x64
             filename: lame64.exe
-            zipname: LAME-windows64.zip
+            zipname: LAME-windows64
           - name: Linux
             os: ubuntu-22.04
             filename: lame
-            zipname: LAME-linux.zip
+            zipname: LAME-linux
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
