@@ -113,13 +113,26 @@ jobs:
             exit 1
           fi
 
-      # Import certificates (macOS)
-      - name: Import Certificates (macOS)
+      - name: Import App Certificate (macOS)
         uses: apple-actions/import-codesign-certs@v3
         if: ${{ matrix.name == 'macOS' }}
         with:
           p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
           p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
+          keychain: "app_signing_temp"  # No .keychain extension
+
+      - name: Import Installer Certificate (macOS)
+        uses: apple-actions/import-codesign-certs@v3
+        if: ${{ matrix.name == 'macOS' }}
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
+          p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
+          keychain: "installer_signing_temp"  # No .keychain extension
+
+      - name: Add Both Keychains to Search List (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security list-keychains -d user -s app_signing_temp.keychain installer_signing_temp.keychain $(security list-keychains -d user | tr -d '"')
 
       # Codesign (macOS)
       - name: Codesign binary (macOS)
@@ -218,3 +231,10 @@ jobs:
         with:
           name: ${{ matrix.zipname }}
           path: ${{ matrix.zipname }}.zip
+
+      # Remove temporary keychains (macOS)
+      - name: Remove Temporary Keychains (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security delete-keychain app_signing_temp.keychain || true
+          security delete-keychain installer_signing_temp.keychain || true
