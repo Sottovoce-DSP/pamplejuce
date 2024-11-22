@@ -120,7 +120,7 @@ jobs:
       
       # Package executable (macOS)
       - name: Package LAME executable (macOS)
-        if: {{matrix.name == 'macOS' || matrix.name == 'Linux'}}
+        if: {matrix.name == 'macOS' || matrix.name == 'Linux'}
         run: |
           cd output
           zip -j ../${{ matrix.zipname }} *
