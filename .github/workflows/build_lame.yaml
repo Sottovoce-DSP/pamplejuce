@@ -167,27 +167,24 @@ jobs:
         run: |
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
                       "LAME-macOSX.pkg" \
-                      "LAME-macOSX-signed.pkg"
-
-          # Remove the unsigned component packages
-          rm "LAME-macOSX.pkg"
+                      "LAME-macOSX.pkg"
 
       # Notarize and staple the PKG (macOS)
       - name: Notarize and staple Certificates (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          xcrun notarytool submit "LAME-macOSX-signed.pkg" \
+          xcrun notarytool submit "LAME-macOSX.pkg" \
               --apple-id ${{ secrets.NOTARIZATION_USERNAME }} \
               --password ${{ secrets.NOTARIZATION_PASSWORD }} \
               --team-id ${{ secrets.TEAM_ID }} \
               --wait
-          xcrun stapler staple "LAME-macOSX-signed.pkg"
+          xcrun stapler staple "LAME-macOSX.pkg"
 
       # Verify the stapled PKG (macOS)
       - name: Verify stapled PKG (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
-          spctl -a -t install -vv "LAME-macOSX-signed.pkg"
+          spctl -a -t install -vv "LAME-macOSX.pkg"
 
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
@@ -223,6 +220,12 @@ jobs:
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}.zip"
       
+      # Package executable (Linux)
+      - name: Package LAME executable (Linux)
+        if: contains(matrix.name, 'Linux')
+        run: |
+          zip -r "${{ matrix.zipname }}.zip" ./output
+
       # Upload artifact for macOS
       - name: Upload artifact for macOS
         if: contains(matrix.name, 'macOS')
