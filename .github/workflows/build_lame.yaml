@@ -149,9 +149,9 @@ jobs:
         if: ${{ matrix.name == 'macOS' }}
         run: |
           # Create the installation path structure
-          mkdir -p installer_root/Library/Application\ Support/SpeedShift\ Studio
-          cp "./output/${{ matrix.filename }}" installer_root/Library/Application\ Support/SpeedShift\ Studio/lame
-          chmod +x installer_root/Library/Application\ Support/SpeedShift\ Studio/lame
+          mkdir -p installer_root
+          cp "./output/${{ matrix.filename }}" installer_root/lame
+          chmod +x installer_root/lame
 
           # Build the PKG
           pkgbuild --identifier "com.sottovocedsp.lame" \
