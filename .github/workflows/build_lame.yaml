@@ -22,13 +22,13 @@ jobs:
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       # Download and extract LAME source
       - name: Download and extract LAME source code
         run: |
           curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
           tar -xzf lame-3.100.tar.gz
-
+      
       # Remove deprecated symbol
       - name: Remove 'lame_init_old' symbol
         run: |
@@ -37,14 +37,14 @@ jobs:
           else
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
-
+      
       # Setup MSVC toolchain (Windows)
       - name: Setup MSVC
         if: matrix.name == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
-
+      
       # Windows-specific MSVC build
       - name: Build LAME with MSVC (Windows)
         if: matrix.name == 'Windows'
@@ -53,7 +53,7 @@ jobs:
           cd lame-3.100
           copy configMS.h config.h
           nmake -f Makefile.MSVC comp=msvc asm=no machine=x86
-
+      
       # macOS build
       - name: Build and install LAME (macOS)
         if: matrix.name == 'macOS'
@@ -64,7 +64,7 @@ jobs:
           ./configure --prefix=$HOME/lame-install
           make
           make install
-
+      
       # Copy binary to output
       - name: Copy LAME binary to output
         run: |
@@ -74,13 +74,21 @@ jobs:
           else
             cp $HOME/lame-install/bin/lame ./output/
           fi
-
-      # Package executable
-      - name: Package LAME executable
+      
+      # Package executable (Windows)
+      - name: Package LAME executable (Windows)
+        if: matrix.name == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "./output/*" -DestinationPath "LAME-${{ matrix.name }}.zip"
+      
+      # Package executable (macOS)
+      - name: Package LAME executable (macOS)
+        if: matrix.name == 'macOS'
         run: |
           cd output
           zip -j ../LAME-${{ matrix.name }}.zip *
-
+      
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
