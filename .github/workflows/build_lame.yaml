@@ -32,6 +32,9 @@ jobs:
           install: >-
             base-devel
             mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-iconv
+            mingw-w64-x86_64-ncurses
+            mingw-w64-x86_64-gettext
 
       - name: Download and extract LAME source code
         run: |
