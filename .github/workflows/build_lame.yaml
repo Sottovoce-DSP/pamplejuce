@@ -32,6 +32,10 @@ jobs:
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install macOS Deps
+        if: ${{ matrix.name == 'macOS' }}
+        run: brew install osxutils
       
       # Download and extract LAME source
       - name: Download and extract LAME source code
@@ -164,6 +168,9 @@ jobs:
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
                       "LAME-macOSX.pkg" \
                       "LAME-macOSX-signed.pkg"
+
+          # Remove the unsigned component packages
+          rm "LAME-macOSX.pkg"
 
       # Notarize and staple the PKG (macOS)
       - name: Notarize and staple Certificates (macOS)
