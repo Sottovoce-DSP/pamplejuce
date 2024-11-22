@@ -17,16 +17,11 @@ jobs:
             os: macos-latest
             filename: lame
             zipname: LAME-macOSX
-          - name: Windows-x86
-            os: windows-latest
-            arch: x86
-            filename: lame32.exe
-            zipname: LAME-windows32
           - name: Windows-x64
             os: windows-latest
             arch: x64
-            filename: lame64.exe
-            zipname: LAME-windows64
+            filename: lame.exe
+            zipname: LAME-windows
           - name: Linux
             os: ubuntu-22.04
             filename: lame
