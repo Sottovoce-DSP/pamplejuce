@@ -157,7 +157,7 @@ jobs:
           pkgbuild --identifier "com.sottovocedsp.lame" \
                   --version "3.100" \
                   --root installer_root \
-                  --install-location "/Library/Application Support/SpeedShift Studio" \
+                  --install-location "~/Library/Application Support/SpeedShift Studio" \
                   "LAME-macOSX.pkg"
           rm -rf installer_root
 
