@@ -69,7 +69,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd lame-3.100
-          CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --disable-brhist
+          CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --disable-decoder --disable-brhist
           make
           make install
 
@@ -80,7 +80,7 @@ jobs:
           cd lame-3.100
           export CFLAGS="-arch x86_64 -arch arm64"
           export LDFLAGS="-arch x86_64 -arch arm64"
-          ./configure --prefix=$HOME/lame-install
+          ./configure --prefix=$HOME/lame-install --disable-decoder --disable-brhist
           make
           make install
 
