@@ -69,7 +69,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd lame-3.100
-          CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install
+          CPPFLAGS="-I$PWD/include" ./configure --prefix=$HOME/lame-install --disable-brhist
           make
           make install
 
