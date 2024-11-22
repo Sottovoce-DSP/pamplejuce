@@ -164,18 +164,18 @@ jobs:
         if: contains(matrix.name, 'Windows')
         shell: pwsh
         run: |
-          Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}"
-      
+          Compress-Archive -Path "./output/*" -DestinationPath "${{ matrix.zipname }}.zip"
+
       # Package executable (macOS)
       - name: Package LAME executable (macOS)
         if: contains(matrix.name, 'macOS') || contains(matrix.name, 'Linux')
         run: |
           cd output
-          zip -j ../${{ matrix.zipname }} *
+          zip -j ../${{ matrix.zipname }}.zip *
       
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.zipname }}.zip
+          name: ${{ matrix.zipname }}
           path: ${{ matrix.zipname }}.zip
