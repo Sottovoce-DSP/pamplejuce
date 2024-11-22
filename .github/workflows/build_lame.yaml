@@ -14,8 +14,15 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
-          - name: Windows
+            exe_name: lame
+          - name: Windows-x86
             os: windows-latest
+            arch: x86
+            exe_name: lame32.exe
+          - name: Windows-x64
+            os: windows-latest
+            arch: x64
+            exe_name: lame64.exe
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
@@ -40,19 +47,19 @@ jobs:
       
       # Setup MSVC toolchain (Windows)
       - name: Setup MSVC
-        if: matrix.name == 'Windows'
+        if: contains(matrix.name, 'Windows')
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: x86
+          arch: ${{ matrix.arch }}
       
       # Windows-specific MSVC build
       - name: Build LAME with MSVC (Windows)
-        if: matrix.name == 'Windows'
+        if: contains(matrix.name, 'Windows')
         shell: cmd
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          nmake -f Makefile.MSVC comp=msvc asm=no machine=x86
+          nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.arch }}
       
       # macOS build
       - name: Build and install LAME (macOS)
@@ -65,19 +72,19 @@ jobs:
           make
           make install
       
-      # Copy binary to output
-      - name: Copy LAME binary to output
+      # Copy and rename binary to output
+      - name: Copy and rename LAME binary to output
         run: |
           mkdir -p output
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/output/lame.exe ./output/
+            cp lame-3.100/output/lame.exe "./output/${{ matrix.exe_name }}"
           else
-            cp $HOME/lame-install/bin/lame ./output/
+            cp $HOME/lame-install/bin/lame "./output/${{ matrix.exe_name }}"
           fi
       
       # Package executable (Windows)
       - name: Package LAME executable (Windows)
-        if: matrix.name == 'Windows'
+        if: contains(matrix.name, 'Windows')
         shell: pwsh
         run: |
           Compress-Archive -Path "./output/*" -DestinationPath "LAME-${{ matrix.name }}.zip"
