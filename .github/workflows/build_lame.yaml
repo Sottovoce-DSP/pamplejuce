@@ -38,6 +38,13 @@ jobs:
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
 
+      # Setup MSVC toolchain (Windows)
+      - name: Setup MSVC
+        if: matrix.name == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
       # Windows-specific MSVC build
       - name: Build LAME with MSVC (Windows)
         if: matrix.name == 'Windows'
@@ -45,8 +52,7 @@ jobs:
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          nmake -f Makefile.MSVC comp=msvc asm=no
+          nmake -f Makefile.MSVC comp=msvc asm=no machine=x86
 
       # macOS build
       - name: Build and install LAME (macOS)
