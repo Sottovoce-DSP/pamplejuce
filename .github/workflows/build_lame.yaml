@@ -10,7 +10,7 @@ defaults:
 jobs:
   build_lame:
     strategy:
-      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
+      fail-fast: false
       matrix:
         include:
           - name: macOS
@@ -57,7 +57,12 @@ jobs:
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          nmake -f Makefile.MSVC comp=msvc asm=no machine=${{ matrix.arch }}
+          powershell -NoProfile -Command "& {
+              $content = Get-Content Makefile.MSVC;
+              $updatedContent = $content -replace '/machine:I386', '/machine:${{ matrix.machine }}';
+              Set-Content -Path Makefile.MSVC -Value $updatedContent;
+          }"
+          nmake -f Makefile.MSVC MACHINE=${{ matrix.machine }} comp=msvc asm=no
       
       # macOS build
       - name: Build and install LAME (macOS)
