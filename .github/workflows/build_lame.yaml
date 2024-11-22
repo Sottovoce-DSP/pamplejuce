@@ -167,7 +167,13 @@ jobs:
         run: |
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
                       "LAME-macOSX.pkg" \
-                      "LAME-macOSX.pkg"
+                      "LAME-macOSX-signed.pkg"
+
+          # Remove the unsigned component packages
+          rm "LAME-macOSX.pkg"
+
+          # Rename the signed package
+          mv "LAME-macOSX-signed.pkg" "LAME-macOSX.pkg"
 
       # Notarize and staple the PKG (macOS)
       - name: Notarize and staple Certificates (macOS)
