@@ -132,13 +132,6 @@ jobs:
         run: |
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "./output/${{ matrix.filename }}" --deep --strict --options=runtime --timestamp
 
-      # Notarize and Staple (macOS)
-      - name: Notarize and Staple (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        run: |
-          xcrun notarytool submit "./output/${{ matrix.filename }}" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
-          xcrun stapler staple "./output/${{ matrix.filename }}"
-
       # Codesign with Azure Trusted Signing (Windows)
       - name: Codesign with Azure Trusted Signing
         if: contains(matrix.name, 'Windows')
