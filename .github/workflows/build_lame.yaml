@@ -137,7 +137,7 @@ jobs:
           chmod +x installer_root/Library/Application\ Support/SpeedShift\ Studio/lame
 
           # Build the PKG
-          pkgbuild --identifier "com.pamplejuce.lame" \
+          pkgbuild --identifier "com.sottovocedsp.lame" \
                   --version "3.100" \
                   --root installer_root \
                   --install-location "/Library/Application Support/SpeedShift Studio" \
