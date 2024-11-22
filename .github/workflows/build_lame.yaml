@@ -15,12 +15,18 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
+            filename: lame
+            zipname: LAME-macOSX.zip
           - name: Windows-x86
             os: windows-latest
             arch: x86
+            filename: lame32
+            zipname: LAME-windows32.zip
           - name: Windows-x64
             os: windows-latest
             arch: x64
+            filename: lame64
+            zipname: LAME-windows64.zip
     runs-on: ${{ matrix.os }}
     name: Build LAME on ${{ matrix.name }}
     steps:
@@ -80,28 +86,20 @@ jobs:
         run: |
           mkdir -p output
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/output/lame.exe ./output/
+            cp lame-3.100/output/lame.exe ./output/${{ matrix.filename }}.exe
           else
-            cp $HOME/lame-install/bin/lame ./output/
+            cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
           fi
       
-      # Package executable (Windows)
-      - name: Package LAME executable (Windows)
-        if: contains(matrix.name, 'Windows')
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "./output/*" -DestinationPath "LAME-${{ matrix.name }}.zip"
-      
-      # Package executable (macOS)
-      - name: Package LAME executable (macOS)
-        if: matrix.name == 'macOS'
+      # Package executable
+      - name: Package LAME executable
         run: |
           cd output
-          zip -j ../LAME-${{ matrix.name }}.zip *
+          zip -j ../${{ matrix.zipname }} *
       
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LAME-${{ matrix.name }}.zip
-          path: LAME-${{ matrix.name }}.zip
+          name: ${{ matrix.zipname }}
+          path: ${{ matrix.zipname }}
