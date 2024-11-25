@@ -61,9 +61,11 @@ jobs:
             os: macos-14
             pluginval-binary: pluginval.app/Contents/MacOS/pluginval
             extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            lameFilename: lame
           - name: Windows
             os: windows-latest
             pluginval-binary: ./pluginval.exe
+            lameFilename: lame.exe
 
     steps:
 
@@ -306,15 +308,15 @@ jobs:
         run: |
           mkdir -p output
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/output/lame.exe ./output/${{ matrix.filename }}
+            cp lame-3.100/output/lame.exe ./output/${{ matrix.lameFilename }}
           else
-            cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
+            cp $HOME/lame-install/bin/lame ./output/${{ matrix.lameFilename }}
           fi
       
       # Test the LAME binary
       - name: Test LAME binary
         run: |
-          output=$(./output/${{ matrix.filename }} --help)
+          output=$(./output/${{ matrix.lameFilename }} --help)
           echo "$output" # Print the output for visibility
           if echo "$output" | grep -q "version 3.100"; then
             echo "Version check passed."
@@ -325,7 +327,7 @@ jobs:
 
       # Save the path to env
       - name: Save LAME binary path
-        run: echo "LAME_PATH=$(pwd)/output/${{ matrix.filename }}" >> $GITHUB_ENV
+        run: echo "LAME_PATH=$(pwd)/output/${{ matrix.lameFilename }}" >> $GITHUB_ENV
 
       # [====================================================]
       # [================ Linux Symbol Strip ================]
