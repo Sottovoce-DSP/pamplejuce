@@ -307,9 +307,9 @@ jobs:
       # Copy binary to output
       - name: Copy LAME binary to output
         run: |
-          mkdir -p output
+          mkdir -p lameBuild
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp lame-3.100/lameBuild/lame.exe ./lameBuild/${{ matrix.lameFilename }}
+            cp lame-3.100/output/lame.exe ./lameBuild/${{ matrix.lameFilename }}
           else
             cp $HOME/lame-install/bin/lame ./lameBuild/${{ matrix.lameFilename }}
           fi
