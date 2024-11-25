@@ -209,9 +209,8 @@ jobs:
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          set CFLAGS=/MACHINE:X64
-          set LDFLAGS=/MACHINE:X64
-          nmake -f Makefile.MSVC comp=msvc asm=no MSVCVER=Win64
+          nmake -f Makefile.MSVC clean
+          nmake -f Makefile.MSVC comp=msvc asm=no MSVCVER=Win64 MACHINE="/MACHINE:X64" LIB_OPTS="/nologo /MACHINE:X64"
           nmake -f Makefile.MSVC install
       
       # macOS LAME build
