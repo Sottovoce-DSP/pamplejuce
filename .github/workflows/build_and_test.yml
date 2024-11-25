@@ -623,6 +623,12 @@ jobs:
         working-directory: ${{ env.ARTIFACTS_PATH }}
         run: 7z a -tzip "${{ env.ARTIFACT_NAME }}.zip" "-xr!lib${{ env.PRODUCT_NAME }}_SharedCode.a" .
 
+      - name: List All Files and Directories Recursively
+        run: |
+          echo "Listing all files and directories recursively..."
+          find . -type d -print
+          find . -type f -print
+
       - name: Generate Installer
         if: ${{ matrix.name == 'Windows' }}
         run: |
