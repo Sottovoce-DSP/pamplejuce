@@ -496,14 +496,7 @@ jobs:
       # [=================== Directory Debug =================]
       # [=====================================================]
 
-      - name: List All Files and Directories Recursively
-        run: |
-          echo "Listing all files and directories recursively..."
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            pwsh -Command "Get-ChildItem -Recurse | ForEach-Object { Write-Output $_.FullName }"
-          else
-            find .
-          fi
+
 
       # [=====================================================]
       # [================ Code Sign & Package ================]
@@ -588,11 +581,8 @@ jobs:
                       "packaging/LAME-macOSX.pkg" \
                       "packaging/LAME-macOSX-signed.pkg"
 
-          # Remove the unsigned component packages
+          # Remove the unsigned lame (causes problems running even if signed & noterized)
           rm "packaging/LAME-macOSX.pkg"
-
-          # Rename the signed package
-          mv "packaging/LAME-macOSX-signed.pkg" "packaging/LAME-macOSX.pkg"
 
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
