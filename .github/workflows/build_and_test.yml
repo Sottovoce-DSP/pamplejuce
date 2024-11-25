@@ -626,8 +626,11 @@ jobs:
       - name: List All Files and Directories Recursively
         run: |
           echo "Listing all files and directories recursively..."
-          find . -type d -print
-          find . -type f -print
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            pwsh -Command "Get-ChildItem -Recurse | ForEach-Object { Write-Output $_.FullName }"
+          else
+            find .
+          fi
 
       - name: Generate Installer
         if: ${{ matrix.name == 'Windows' }}
