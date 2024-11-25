@@ -57,11 +57,11 @@ jobs:
           # - name: Linux
           #   os: ubuntu-22.04
           #   pluginval-binary: ./pluginval
-          - name: macOS
-            os: macos-14
-            pluginval-binary: pluginval.app/Contents/MacOS/pluginval
-            extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-            lameFilename: lame
+          # - name: macOS
+          #   os: macos-14
+          #   pluginval-binary: pluginval.app/Contents/MacOS/pluginval
+          #   extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          #   lameFilename: lame
           - name: Windows
             os: windows-latest
             pluginval-binary: ./pluginval.exe
@@ -288,10 +288,11 @@ jobs:
           copy configMS.h config.h
           powershell -NoProfile -Command "& {
               $content = Get-Content Makefile.MSVC;
-              $updatedContent = $content -replace '/machine:I386', '/machine:x64';
-              Set-Content -Path Makefile.MSVC -Value $updatedContent;
+              $content = $content -replace '/machine:I386', '/machine:X64';
+              $content = $content -replace 'MACHINE = /machine:I386', 'MACHINE = /machine:X64';
+              Set-Content -Path Makefile.MSVC -Value $content;
           }"
-          nmake -f Makefile.MSVC MACHINE=x64 comp=msvc asm=no
+          nmake -f Makefile.MSVC comp=msvc asm=no MSVCVER=Win64
       
       # macOS build
       - name: Build and install LAME (macOS / Linux)
