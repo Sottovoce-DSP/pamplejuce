@@ -288,10 +288,10 @@ jobs:
           copy configMS.h config.h
           powershell -NoProfile -Command "& {
               $content = Get-Content Makefile.MSVC;
-              $updatedContent = $content -replace '/machine:I386', '/machine:${{ matrix.machine }}';
+              $updatedContent = $content -replace '/machine:I386', '/machine:x64';
               Set-Content -Path Makefile.MSVC -Value $updatedContent;
           }"
-          nmake -f Makefile.MSVC MACHINE=${{ matrix.machine }} comp=msvc asm=no
+          nmake -f Makefile.MSVC MACHINE=x64 comp=msvc asm=no
       
       # macOS build
       - name: Build and install LAME (macOS / Linux)
