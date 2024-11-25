@@ -584,6 +584,9 @@ jobs:
           # Remove the unsigned lame (causes problems running even if signed & noterized)
           rm "packaging/LAME-macOSX.pkg"
 
+          # Print all files in the packages folder to screen
+          ls -R packaging
+
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
                        --resources "packaging" \

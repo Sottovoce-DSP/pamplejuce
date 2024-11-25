@@ -24,9 +24,8 @@
     </choice>
 
     <!-- Package references with consistent IDs -->
-    <pkg-ref id="com.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
-    <pkg-ref id="com.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
-    <pkg-ref id="com.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.vst3" installKBytes="0" version="1.0">Pamplejuce DemoVST3-signed.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.au" installKBytes="0" version="1.0">Pamplejuce DemoAU-signed.pkg</pkg-ref>
     <pkg-ref id="com.pamplejuce.lame" installKBytes="0" version="3.100">LAME-macOSX-signed.pkg</pkg-ref>
 
     <conclusion>
