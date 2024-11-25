@@ -279,22 +279,19 @@ jobs:
             sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
           fi
 
-      # Windows-specific MSVC build
+      # Windows-specific LAME MSVC build
       - name: Build LAME with MSVC (Windows)
         if: matrix.name == 'Windows'
         shell: cmd
         run: |
           cd lame-3.100
           copy configMS.h config.h
-          powershell -NoProfile -Command "& {
-              $content = Get-Content Makefile.MSVC;
-              $content = $content -replace '/machine:I386', '/machine:X64';
-              $content = $content -replace 'MACHINE = /machine:I386', 'MACHINE = /machine:X64';
-              Set-Content -Path Makefile.MSVC -Value $content;
-          }"
+          set CFLAGS=/MACHINE:X64
+          set LDFLAGS=/MACHINE:X64
           nmake -f Makefile.MSVC comp=msvc asm=no MSVCVER=Win64
+          nmake -f Makefile.MSVC install
       
-      # macOS build
+      # macOS LAME build
       - name: Build and install LAME (macOS / Linux)
         if: matrix.name == 'macOS' || matrix.name == 'Linux'
         run: |
