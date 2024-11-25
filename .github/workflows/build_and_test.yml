@@ -152,7 +152,8 @@ jobs:
         run: |
           git submodule > git_submodule_versions.txt
 
-      - name: Upload submodule output artifact
+      - name: Upload submodule output artifact (macOS)
+        if: ${{ matrix.name == 'macOS' }}
         uses: actions/upload-artifact@v4
         with:
           name: git_submodule_versions
@@ -541,7 +542,7 @@ jobs:
 
           # Create the installation path structure
           mkdir -p installer_root
-          cp "./output/${{ matrix.filename }}" installer_root/lame
+          cp "./output/${{ matrix.lameFilename }}" installer_root/lame
           chmod +x installer_root/lame
 
           # Build the PKG
