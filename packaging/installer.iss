@@ -42,7 +42,7 @@ Source: "..\Builds\{#ProjectName}_artefacts\Release\VST3\{#ProductName}.vst3\*";
     Flags: ignoreversion recursesubdirs; \
     Components: vst3
 
-Source: "..\Builds\{#ProjectName}_artefacts\Release\lame.exe"; \
+Source: "..\Builds\{#ProjectName}_artefacts\Release\output\lame.exe"; \
     DestDir: "{commonappdata}\Pamplejuce"; \
     Flags: ignoreversion; \
     Components: lame
