@@ -11,8 +11,8 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 ; Components are used inside the script and can be composed of a set of 'Types'
 [Components]
-Name: "vst3"; Description: "VST3 plugin"; Types: full custom
-Name: "lame"; Description: "LAME executable"; Types: full custom
+Name: "vst3"; Description: "VST3 Plugin"; Types: full custom
+Name: "lame"; Description: "LAME Encoder"; Types: full custom
 
 [Setup]
 ArchitecturesInstallIn64BitMode=x64compatible
