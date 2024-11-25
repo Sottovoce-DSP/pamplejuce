@@ -6,14 +6,10 @@
     <license file="EULA.txt"/>
     <options customize="always" allow-external-scripts="no"/>
     <choices-outline>
-        <line choice="app"/>
         <line choice="vst3"/>
         <line choice="au"/>
+        <line choice="lame"/> <!-- Added LAME choice -->
     </choices-outline>
-    <choice id="app" visible="true" title="Standalone Application" selected="true">
-        <description>Install the standalone application.</description>
-        <pkg-ref id="com.pamplejuce.app"/>
-    </choice>
     <choice id="vst3" visible="true" title="VST3 Plugin" selected="true">
         <description>Install the VST3 version of the plugin.</description>
         <pkg-ref id="com.pamplejuce.vst3"/>
@@ -22,11 +18,16 @@
         <description>Install the AU version of the plugin.</description>
         <pkg-ref id="com.pamplejuce.au"/>
     </choice>
+    <choice id="lame" visible="true" title="LAME Encoder" selected="true">
+        <description>Install the LAME MP3 encoder.</description>
+        <pkg-ref id="com.pamplejuce.lame"/>
+    </choice>
 
     <!-- Package references with consistent IDs -->
     <pkg-ref id="com.pamplejuce.app" installKBytes="0" version="1.0">PamplejuceApp-signed.pkg</pkg-ref>
     <pkg-ref id="com.pamplejuce.vst3" installKBytes="0" version="1.0">PamplejuceVST3-signed.pkg</pkg-ref>
     <pkg-ref id="com.pamplejuce.au" installKBytes="0" version="1.0">PamplejuceAU-signed.pkg</pkg-ref>
+    <pkg-ref id="com.pamplejuce.lame" installKBytes="0" version="3.100">LAME-macOSX-signed.pkg</pkg-ref>
 
     <conclusion>
         <readme file="conclusion.html"/>

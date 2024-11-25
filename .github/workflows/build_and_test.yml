@@ -1,7 +1,22 @@
-name: Pamplejuce
+#  ___                 _        _                ___ ___ 
+# | _ \__ _ _ __  _ __| |___ _ | |_  _ __ ___   / __|_ _|
+# |  _/ _` | '  \| '_ \ / -_) || | || / _/ -_) | (__ | | 
+# |_| \__,_|_|_|_| .__/_\___|\__/ \_,_\__\___|  \___|___|
+#                |_|                                     
+
+name: YAML Build and Test
+
+# Recent Change List
+# - Strip binary symbols after testing, before codesign (November 1 2024)
+
+# [===================================================================]
+# [================ Global Variables Needed By Runner ================]
+# [===================================================================]
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # lets you run a build from the UI
+  #push:
+  #pull_request:
 
 # When pushing new commits, cancel any running builds on that branch
 concurrency:
@@ -16,10 +31,16 @@ env:
   SCCACHE_GHA_ENABLED: true
   SCCACHE_CACHE_MULTIARCH: 1
   IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
+  SHOULD_STRIP_SYMBOLS: false
+  TEST_SYMBOL: processBlock
 
 defaults:
   run:
     shell: bash
+
+# [======================================]
+# [================ Jobs ================]
+# [======================================]
 
 # jobs are run in paralell on different machines
 # all steps run in series
@@ -33,13 +54,82 @@ jobs:
       fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
-
-          - name: macOS
-            os: macos-14
-            pluginval-binary: pluginval.app/Contents/MacOS/pluginval
-            extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          # - name: Linux
+          #   os: ubuntu-22.04
+          #   pluginval-binary: ./pluginval
+          # - name: macOS
+          #   os: macos-14
+          #   pluginval-binary: pluginval.app/Contents/MacOS/pluginval
+          #   extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          # - name: Windows
+          #   os: windows-latest
+          #   pluginval-binary: ./pluginval.exe
 
     steps:
+
+      # [====================================================]
+      # [================ Setup Environments ================]
+      # [====================================================]
+
+      # Figure out how many cores we have to work with
+      - name: Set number of cores
+        run: |
+          echo "Determining number of cores..."
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            CORES=$(nproc)
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            CORES=$(sysctl -n hw.ncpu)
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            CORES=$NUMBER_OF_PROCESSORS
+          else
+            echo "Unknown OS. Defaulting to 2 cores."
+            CORES=2
+          fi
+          echo "NUMBER_OF_CORES=$CORES" >> $GITHUB_ENV
+          echo "Detected $CORES cores"
+
+      # Setup MSVC toolchain and developer command prompt (Windows)
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      # Use clang on Linux so we don't introduce a 3rd compiler (Windows and macOS use MSVC and Clang)
+      - name: Set up Clang
+        if: runner.os == 'Linux'
+        uses: egor-tensin/setup-clang@v1
+
+      # This also starts up our "fake" display (Xvfb), needed for pluginval
+      - name: Install JUCE's Linux Deps
+        if: runner.os == 'Linux'
+        # Thanks to McMartin & co https://forum.juce.com/t/list-of-juce-dependencies-under-linux/15121/44
+        run: |
+          sudo apt-get update && sudo apt install libasound2-dev libx11-dev libxinerama-dev libxext-dev libfreetype6-dev libwebkit2gtk-4.0-dev libglu1-mesa-dev xvfb ninja-build
+          sudo /usr/bin/Xvfb $DISPLAY &
+
+      - name: Cache IPP (Windows)
+        if: runner.os == 'Windows'
+        id: cache-ipp
+        uses: actions/cache@v4
+        with:
+          key: ipp-v5
+          path: C:\Program Files (x86)\Intel
+
+      - name: Install IPP (Windows)
+        if: (runner.os == 'Windows') && (steps.cache-ipp.outputs.cache-hit != 'true')
+        run: |
+          curl --output oneapi.exe https://registrationcenter-download.intel.com/akdlm/IRC_NAS/b4adec02-353b-4144-aa21-f2087040f316/w_ipp_oneapi_p_2021.11.0.533_offline.exe
+          ./oneapi.exe -s -x -f oneapi
+          ./oneapi/bootstrapper.exe -s -c --action install --components=intel.oneapi.win.ipp.devel --eula=accept -p=NEED_VS2022_INTEGRATION=1 --log-dir=.
+
+      - name: Save IPP cache (even on CI fail)
+        if: runner.os == 'Windows' && (steps.cache-ipp.outputs.cache-hit != 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: C:\Program Files (x86)\Intel
+          key: ipp-v5
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja
+
       - name: Install macOS Deps
         if: ${{ matrix.name == 'macOS' }}
         run: brew install ninja osxutils
@@ -56,6 +146,16 @@ jobs:
         with:
           submodules: true # Get JUCE populated
 
+      - name: Save git submodule output to file
+        run: |
+          git submodule > git_submodule_versions.txt
+
+      - name: Upload submodule output artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: git_submodule_versions
+          path: git_submodule_versions.txt
+
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
 
@@ -65,7 +165,7 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
           p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
-          keychain: "app_signing_temp"  # No .keychain extension
+          keychain: "app_signing_temp"
 
       - name: Import Installer Certificate (macOS)
         uses: apple-actions/import-codesign-certs@v3
@@ -73,18 +173,33 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
           p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
-          keychain: "installer_signing_temp"  # No .keychain extension
+          keychain: "installer_signing_temp"
 
       - name: Add Both Keychains to Search List (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: |
           security list-keychains -d user -s app_signing_temp.keychain installer_signing_temp.keychain $(security list-keychains -d user | tr -d '"')
 
+      # [=======================================]
+      # [================ Build ================]
+      # [=======================================]
+
       - name: Configure
-        run: cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE}} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ matrix.extra-flags }} .
+        run: |
+          cmake -B ${{ env.BUILD_DIR }} \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+                -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+                ${{ matrix.extra-flags }} \
+                .
 
       - name: Build
-        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel 4
+        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel ${{ env.NUMBER_OF_CORES }}
+
+      # [=====================================================]
+      # [================ Setup Git Variables ================]
+      # [=====================================================]
 
       - name: Read in .env from CMake # see GitHubENV.cmake
         run: |
@@ -98,11 +213,285 @@ jobs:
           echo "VST3_PATH=$ARTIFACTS_PATH/VST3/${{ env.PRODUCT_NAME }}.vst3" >> $GITHUB_ENV
           echo "AU_PATH=$ARTIFACTS_PATH/AU/${{ env.PRODUCT_NAME }}.component" >> $GITHUB_ENV
           echo "AUV3_PATH=$ARTIFACTS_PATH/AUv3/${{ env.PRODUCT_NAME }}.appex" >> $GITHUB_ENV
-          echo "STANDALONE_PATH=$ARTIFACTS_PATH/Standalone/${{ env.PRODUCT_NAME }}.app" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
 
-      - name: List Files in Directory
-        run: ls -la
+      - name: Set Linux-specific env vars
+        if: ${{ matrix.name == 'Linux' }}
+        run: |
+          VST3_SO_PATH="${{ env.VST3_PATH }}/Contents/x86_64-linux/${{ env.PRODUCT_NAME }}.so"
+          echo "VST3_SO_PATH=$VST3_SO_PATH" >> $GITHUB_ENV
+
+      - name: Set macOS-specific env vars
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          VST3_BIN="${{ env.VST3_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
+          AU_BIN="${{ env.AU_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
+          echo "VST3_BIN=$VST3_BIN" >> $GITHUB_ENV
+          echo "AU_BIN=$AU_BIN" >> $GITHUB_ENV
+
+      - name: Set Windows-specific paths
+        if: runner.os == 'Windows'
+        run: |
+          echo "VST3_PATH_WINDOWS=${{ env.VST3_PATH }}" >> $GITHUB_ENV
+
+      # [======================================]
+      # [================ Test ================]
+      # [======================================]
+
+      - name: Test
+        working-directory: ${{ env.BUILD_DIR }}
+        run: ./Tests
+
+      - name: Run Benchmarks
+        working-directory: ${{ env.BUILD_DIR }}
+        run: ./Benchmarks
+
+      # [============================================]
+      # [================ Plugin Val ================]
+      # [============================================]
+
+      - name: Pluginval
+        run: |
+          curl -LO "https://github.com/Tracktion/pluginval/releases/download/v1.0.3/pluginval_${{ matrix.name }}.zip"
+          7z x pluginval_${{ matrix.name }}.zip
+          ${{ matrix.pluginval-binary }} --strictness-level 10 --verbose --validate "${{ env.VST3_PATH }}"
+
+
+      # [============================================]
+      # [================= LAME =====================]
+      # [============================================]
+
+      # Download and extract LAME source
+      - name: Download and extract LAME source code
+        run: |
+          curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+          tar -xzf lame-3.100.tar.gz
+      
+      # Remove deprecated symbol
+      - name: Remove 'lame_init_old' symbol
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
+          else
+            sed -i '/lame_init_old/d' lame-3.100/include/libmp3lame.sym
+          fi
+
+      # Windows-specific MSVC build
+      - name: Build LAME with MSVC (Windows)
+        if: matrix.name == 'Windows'
+        shell: cmd
+        run: |
+          cd lame-3.100
+          copy configMS.h config.h
+          powershell -NoProfile -Command "& {
+              $content = Get-Content Makefile.MSVC;
+              $updatedContent = $content -replace '/machine:I386', '/machine:${{ matrix.machine }}';
+              Set-Content -Path Makefile.MSVC -Value $updatedContent;
+          }"
+          nmake -f Makefile.MSVC MACHINE=${{ matrix.machine }} comp=msvc asm=no
+      
+      # macOS build
+      - name: Build and install LAME (macOS / Linux)
+        if: matrix.name == 'macOS' || matrix.name == 'Linux'
+        run: |
+          cd lame-3.100
+          export CFLAGS="-arch x86_64 -arch arm64"
+          export LDFLAGS="-arch x86_64 -arch arm64"
+          ./configure --prefix=$HOME/lame-install
+          make
+          make install
+
+      # Copy binary to output
+      - name: Copy LAME binary to output
+        run: |
+          mkdir -p output
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp lame-3.100/output/lame.exe ./output/${{ matrix.filename }}
+          else
+            cp $HOME/lame-install/bin/lame ./output/${{ matrix.filename }}
+          fi
+      
+      # Test the LAME binary
+      - name: Test LAME binary
+        run: |
+          output=$(./output/${{ matrix.filename }} --help)
+          echo "$output" # Print the output for visibility
+          if echo "$output" | grep -q "version 3.100"; then
+            echo "Version check passed."
+          else
+            echo "Expected 'version 3.100' in output."
+            exit 1
+          fi
+
+      # Save the path to env
+      - name: Save LAME binary path
+        run: echo "LAME_PATH=$(pwd)/output/${{ matrix.filename }}" >> $GITHUB_ENV
+
+      # [====================================================]
+      # [================ Linux Symbol Strip ================]
+      # [====================================================]
+
+      - name: Test if symbol exists (Linux)
+        if: ${{ matrix.name == 'Linux' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if nm "$VST3_SO_PATH" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol ${{ env.TEST_SYMBOL }} found in VST3!"
+          else
+            echo "Symbol we were expecting to exist in VST3 was not found!"
+            exit 1
+          fi
+
+      - name: Generate symbol files, strip binaries (Linux)
+        if: ${{ matrix.name == 'Linux' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if [ -f "$VST3_SO_PATH" ]; then
+            if objcopy --only-keep-debug "$VST3_SO_PATH" "$VST3_SO_PATH.debug"; then
+              echo "Successfully created debug symbols for VST3 Plugin"
+            else
+              echo "Failed to create debug symbols for VST3 Plugin"
+              exit 1
+            fi
+
+            if strip --strip-unneeded "$VST3_SO_PATH"; then
+              echo "Successfully stripped VST3 Plugin"
+            else
+              echo "Failed to strip VST3 Plugin"
+              exit 1
+            fi
+
+            if objcopy --add-gnu-debuglink="$VST3_SO_PATH.debug" "$VST3_SO_PATH"; then
+              echo "Successfully added debug link to VST3 Plugin"
+            else
+              echo "Failed to add debug link to VST3 Plugin"
+              exit 1
+            fi
+
+            # Export VST3_SO_PATH to the environment
+            echo "VST3_SO_PATH=$VST3_SO_PATH" >> $GITHUB_ENV
+          else
+            echo "VST3 Plugin not found at $VST3_SO_PATH"
+            exit 1
+          fi
+
+      - name: Test if symbol was stripped (Linux)
+        if: ${{ matrix.name == 'Linux' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if nm "$VST3_SO_PATH" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol we were expecting to be stripped is still present in VST3!"
+            exit 1
+          fi
+
+          echo "Symbols were successfully stripped from all binaries"
+  
+      - name: Upload symbol files (Linux)
+        if: ${{ matrix.name == 'Linux' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-symbols-Linux
+          path: |
+            ${{ env.VST3_SO_PATH }}.debug
+
+      # [====================================================]
+      # [================ Mac Symbol Strip ==================]
+      # [====================================================]
+      
+      - name: Test if symbol exists (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol ${{ env.TEST_SYMBOL }} found in VST3!"
+          else
+            echo "Symbol we were expecting to exist in VST3 was not found!"
+            exit 1
+          fi
+
+          # AU
+          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol ${{ env.TEST_SYMBOL }} found in AU!"
+          else
+            echo "Symbol we were expecting to exist in AU was not found!"
+            exit 1
+          fi
+
+          # VST3
+          echo "VST3 Binary Path: $VST3_BIN"
+          if [ -f "$VST3_BIN" ]; then
+            if dsymutil "$VST3_BIN" -o "$VST3_BIN.dSYM"; then
+              echo "Successfully created dSYM for VST3 Plugin"
+            else
+              echo "Failed to create dSYM for VST3 Plugin"
+              exit 1
+            fi
+
+            if strip -x "$VST3_BIN"; then
+              echo "Successfully stripped VST3 Plugin"
+            else
+              echo "Failed to strip VST3 Plugin"
+              exit 1
+            fi
+          else
+            echo "VST3 Plugin binary not found at $VST3_BIN"
+            exit 1
+          fi
+
+          # AU
+          echo "AU Binary Path: $AU_BIN"
+          if [ -f "$AU_BIN" ]; then
+            if dsymutil "$AU_BIN" -o "$AU_BIN.dSYM"; then
+              echo "Successfully created dSYM for AU Plugin"
+            else
+              echo "Failed to create dSYM for AU Plugin"
+              exit 1
+            fi
+
+            if strip -x "$AU_BIN"; then
+              echo "Successfully stripped AU Plugin"
+            else
+              echo "Failed to strip AU Plugin"
+              exit 1
+            fi
+          else
+            echo "AU Plugin binary not found at $AU_BIN"
+            exit 1
+          fi
+
+          # Export paths for later steps
+          echo "VST3_DSYM_PATH=$VST3_BIN.dSYM" >> $GITHUB_ENV
+          echo "AU_DSYM_PATH=$AU_BIN.dSYM" >> $GITHUB_ENV
+
+      - name: Test if symbol was stripped (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol we were expecting to be stripped is still present in VST3!"
+            exit 1
+          fi
+
+          # AU
+          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol we were expecting to be stripped is still present in AU!"
+            exit 1
+          fi
+
+          echo "Symbols were successfully stripped from all binaries"
+
+      - name: Upload symbol files (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-symbols-macOS
+          path: |
+            ${{ env.VST3_DSYM_PATH }}
+            ${{ env.AU_DSYM_PATH }}
+
+      # [=====================================================]
+      # [================ Code Sign & Package ================]
+      # [=====================================================]
 
       - name: Codesign (macOS)
         if: ${{ matrix.name == 'macOS' }}
@@ -110,7 +499,7 @@ jobs:
           # Each plugin must be code signed
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.VST3_PATH }}" --deep --strict --options=runtime --timestamp
           codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.AU_PATH }}" --deep --strict --options=runtime --timestamp
-          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION}}" -v "${{ env.STANDALONE_PATH }}" --deep --strict --options=runtime --timestamp
+          codesign --force -s "${{ secrets.DEVELOPER_ID_APPLICATION }}" -v "${{ env.LAME_PATH }}" --deep --strict --options=runtime --timestamp
 
       - name: Add Custom Icons (macOS)
         if: ${{ matrix.name == 'macOS' }}
@@ -138,57 +527,63 @@ jobs:
           # Move built products
           mv "${{ env.VST3_PATH }}" packaging/dmg/
           mv "${{ env.AU_PATH }}" packaging/dmg/
-          mv "${{ env.STANDALONE_PATH }}" packaging/dmg/
 
           # Define paths
-          APP_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.app"
           VST3_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.vst3"
           AU_PATH="packaging/dmg/${{ env.PRODUCT_NAME }}.component"
 
           # Define package IDs
-          APP_PKG_ID="${{ env.BUNDLE_ID }}.app"
           VST3_PKG_ID="${{ env.BUNDLE_ID }}.vst3"
           AU_PKG_ID="${{ env.BUNDLE_ID }}.au"
+          LAME_PKG_ID="${{ env.BUNDLE_ID }}.lame"
 
-          # Create component packages
-          pkgbuild --install-location "/Applications" \
-                   --component "$APP_PATH" \
-                   --identifier "$APP_PKG_ID" \
-                   "packaging/PamplejuceApp.pkg"
+          # Create the installation path structure
+          mkdir -p installer_root
+          cp "./output/${{ matrix.filename }}" installer_root/lame
+          chmod +x installer_root/lame
+
+          # Build the PKG
+          pkgbuild --install-location "/Library/Application Support/${{ env.PRODUCT_NAME }}" \
+                  --root installer_root \
+                  --identifier "${{ env.BUNDLE_ID }}.lame" \
+                  "packaging/LAME-macOSX.pkg"
 
           pkgbuild --install-location "/Library/Audio/Plug-Ins/VST3" \
                    --component "$VST3_PATH" \
                    --identifier "$VST3_PKG_ID" \
-                   "packaging/PamplejuceVST3.pkg"
+                   "packaging/${{ env.PRODUCT_NAME }}VST3.pkg"
 
           pkgbuild --install-location "/Library/Audio/Plug-Ins/Components" \
                    --component "$AU_PATH" \
                    --identifier "$AU_PKG_ID" \
-                   "packaging/PamplejuceAU.pkg"
+                   "packaging/${{ env.PRODUCT_NAME }}AU.pkg"
 
           # Sign the component packages
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceApp.pkg" \
-                      "packaging/PamplejuceApp-signed.pkg"
+                      "packaging/${{ env.PRODUCT_NAME }}VST3.pkg" \
+                      "packaging/${{ env.PRODUCT_NAME }}VST3-signed.pkg"
 
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceVST3.pkg" \
-                      "packaging/PamplejuceVST3-signed.pkg"
+                      "packaging/${{ env.PRODUCT_NAME }}AU.pkg" \
+                      "packaging/${{ env.PRODUCT_NAME }}AU-signed.pkg"
 
+          # Sign LAME
           productsign --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                      "packaging/PamplejuceAU.pkg" \
-                      "packaging/PamplejuceAU-signed.pkg"
+                      "packaging/LAME-macOSX.pkg" \
+                      "packaging/LAME-macOSX-signed.pkg"
 
           # Remove the unsigned component packages
-          rm "packaging/PamplejuceVST3.pkg"
-          rm "packaging/PamplejuceAU.pkg"
+          rm "packaging/LAME-macOSX.pkg"
+
+          # Rename the signed package
+          mv "packaging/LAME-macOSX-signed.pkg" "packaging/LAME-macOSX.pkg"
 
           # Build the product archive (installer package)
           productbuild --distribution "packaging/distribution.xml" \
                        --resources "packaging" \
                        --package-path "packaging" \
                        --sign "${{ secrets.DEVELOPER_ID_INSTALLER }}" \
-                       "packaging/PamplejuceInstaller.pkg"
+                       "packaging/${{ env.PRODUCT_NAME }} Installer.pkg"
 
       - name: Create DMG with PKG Installer (macOS)
         if: ${{ matrix.name == 'macOS' }}
@@ -220,6 +615,72 @@ jobs:
           security delete-keychain app_signing_temp.keychain || true
           security delete-keychain installer_signing_temp.keychain || true
 
+      - name: Zip
+        if: ${{ matrix.name == 'Linux' }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
+        run: 7z a -tzip "${{ env.ARTIFACT_NAME }}.zip" "-xr!lib${{ env.PRODUCT_NAME }}_SharedCode.a" .
+
+      - name: Generate Installer
+        if: ${{ matrix.name == 'Windows' }}
+        run: |
+          iscc "packaging\installer.iss"
+          mv "packaging/Output/${{ env.ARTIFACT_NAME }}.exe" "${{ env.ARTIFACTS_PATH }}/"
+
+      - name: Codesign with Azure Trusted Signing
+        if: ${{ matrix.name == 'Windows' }}
+        uses: azure/trusted-signing-action@v0.4.0
+        with:
+          # The Azure Active Directory tenant (directory) ID.
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+          # The client (application) ID of an App Registration in the tenant.
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+          # A client secret that was generated for the App Registration.
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+          # The Code Signing Account endpoint. The URI value must have a URI that aligns to the region your Code Signing Account and Certificate Profile you are specifying were created in during the setup of these resources.
+          endpoint: ${{ secrets.AZURE_ENDPOINT }}
+
+          # The Code Signing Account name.
+          trusted-signing-account-name: ${{ secrets.AZURE_CODE_SIGNING_NAME }}
+
+          # The Certificate Profile name.
+          certificate-profile-name: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
+
+          # This signs all exes inside the folder
+          files-folder: ${{ env.ARTIFACTS_PATH }}
+          files-folder-filter: exe
+
+      # [==================================================]
+      # [================ Upload Artifacts ================]
+      # [==================================================]
+
+      - name: Upload Exe (Windows)
+        if: ${{ matrix.name == 'Windows' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}.exe
+          path: "${{ env.ARTIFACTS_PATH }}/${{ env.ARTIFACT_NAME }}.exe"
+
+      - name: Upload Zip (Linux)
+        if: ${{ matrix.name == 'Linux' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}.zip
+          path: "${{ env.ARTIFACTS_PATH }}/${{ env.ARTIFACT_NAME }}.zip"
+
+      - name: Upload DMG (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}.dmg
+          path: packaging/${{ env.ARTIFACT_NAME }}.dmg
+
+  # [=========================================]
+  # [================ Release ================]
+  # [=========================================]
+
   release:
     if: contains(github.ref, 'tags/v')
     runs-on: ubuntu-latest
@@ -239,3 +700,4 @@ jobs:
             */*.exe
             */*.zip
             */*.dmg
+            */git_submodule_versions.txt
