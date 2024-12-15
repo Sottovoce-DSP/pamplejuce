@@ -85,6 +85,13 @@ jobs:
           echo "NUMBER_OF_CORES=$CORES" >> $GITHUB_ENV
           echo "Detected $CORES cores"
 
+      - name: Set PRODUCT_NAME and VERSION
+        run: |
+          # If you have a known product name, just set it:
+          echo "PRODUCT_NAME=MyAwesomePlugin" >> $GITHUB_ENV
+          # If VERSION is known (or parsed from a file/command), set it here:
+          echo "VERSION=1.2.3" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
