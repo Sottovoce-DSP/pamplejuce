@@ -148,6 +148,10 @@ jobs:
         with:
           submodules: true # Get JUCE populated
 
+      - name: Save main repo commit to file (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: git rev-parse HEAD > main_repo_commit.txt
+
       - name: Save git submodule output to file
         run: |
           git submodule > git_submodule_versions.txt
@@ -156,8 +160,15 @@ jobs:
         if: ${{ matrix.name == 'macOS' }}
         uses: actions/upload-artifact@v4
         with:
-          name: git_submodule_versions
+          name: git_submodule_versions.txt
           path: git_submodule_versions.txt
+
+      - name: Upload main module output artifact (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: main_repo_commit.txt
+          path: main_repo_commit.txt
 
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
@@ -676,6 +687,114 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}.dmg
           path: packaging/${{ env.ARTIFACT_NAME }}.dmg
 
+      # [========================================================]
+      # [================ Upload To Google Drive ================]
+      # [========================================================]
+
+      # Authenticate and Configure Google Cloud via OIDC
+      - name: Authenticate and Configure Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+      
+      - name: Set GOOGLE_APPLICATION_CREDENTIALS environment variable
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=${{ runner.temp }}/gha-creds.json" >> $GITHUB_ENV
+
+      - name: Install Python Dependencies for Drive Upload
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+      # Create a Python script inline to handle folder creation & file upload
+      - name: Create Python Upload Script
+        run: |
+          cat > upload_to_drive.py <<EOF
+          import os
+          import sys
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          SCOPES = ['https://www.googleapis.com/auth/drive.file']
+          creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+          if not creds_path or not os.path.exists(creds_path):
+              print("Error: Credentials file not found at", creds_path)
+              sys.exit(1)
+
+          creds = service_account.Credentials.from_service_account_file(
+              creds_path, scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
+
+          def find_or_create_folder(name, parent_id=None):
+              # Search for folder
+              query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+              if parent_id:
+                  query += f" and '{parent_id}' in parents"
+              results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+              files = results.get('files', [])
+              if files:
+                  return files[0]['id']
+              # Create if not found
+              file_metadata = {
+                  'name': name,
+                  'mimeType': 'application/vnd.google-apps.folder'
+              }
+              if parent_id:
+                  file_metadata['parents'] = [parent_id]
+              folder = service.files().create(body=file_metadata, fields='id').execute()
+              return folder.get('id')
+
+          ROOT_FOLDER_NAME = "Release"
+          PRODUCT_NAME = os.getenv('PRODUCT_NAME')
+          VERSION = os.getenv('VERSION')
+
+          if not PRODUCT_NAME or not VERSION:
+              print("PRODUCT_NAME or VERSION is not set.")
+              sys.exit(1)
+
+          root_folder_id = find_or_create_folder(ROOT_FOLDER_NAME)
+          plugin_folder_id = find_or_create_folder(PRODUCT_NAME, parent_id=root_folder_id)
+
+          import datetime
+          now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
+          version_folder_name = f"Release_{VERSION}_{now_str}"
+          version_folder_id = find_or_create_folder(version_folder_name, parent_id=plugin_folder_id)
+
+          # Upload artifacts
+          # Pass file paths as arguments to script
+          for artifact_path in sys.argv[1:]:
+              if not os.path.exists(artifact_path):
+                  print(f"Warning: {artifact_path} does not exist. Skipping.")
+                  continue
+              file_name = os.path.basename(artifact_path)
+              media = MediaFileUpload(artifact_path, resumable=True)
+              body = {'name': file_name, 'parents': [version_folder_id]}
+              uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
+              print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
+
+          # If you want to expose the folder ID for further steps:
+          print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
+          EOF
+
+      # Upload Windows-specific artifacts to Google Drive via Python Script
+      - name: Upload Windows Artifacts to Google Drive
+        if: ${{ matrix.name == 'Windows' }}
+        run: |
+          echo "Uploading Windows artifacts to Google Drive..."
+          ARTIFACT_PATH="${{ env.ARTIFACTS_PATH }}/${{ env.ARTIFACT_NAME }}.exe"
+          python3 upload_to_drive.py "$ARTIFACT_PATH"
+
+      # Upload macOS-specific artifacts to Google Drive via Python Script
+      - name: Upload macOS Artifacts to Google Drive
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          echo "Uploading macOS artifacts to Google Drive..."
+          DMG_PATH="packaging/${{ env.ARTIFACT_NAME }}.dmg"
+          SUBMODULE_PATH="git_submodule_versions.txt"
+          COMMIT_PATH="main_repo_commit.txt"
+          python3 upload_to_drive.py "$DMG_PATH" "$SUBMODULE_PATH" "$COMMIT_PATH"
+
   # [=========================================]
   # [================ Release ================]
   # [=========================================]
@@ -693,10 +812,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          # download-artifact puts these files in their own dirs...
-          # Using globs sidesteps having to pass the version around
           files: |
-            */*.exe
-            */*.zip
-            */*.dmg
-            */git_submodule_versions.txt
+            *.exe
+            *.dmg
+            git_submodule_versions.txt
+            main_repo_commit.txt
