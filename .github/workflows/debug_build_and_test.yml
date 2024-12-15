@@ -87,15 +87,13 @@ jobs:
 
       - name: Set PRODUCT_NAME and VERSION
         run: |
-          # If you have a known product name, just set it:
           echo "PRODUCT_NAME=MyAwesomePlugin" >> $GITHUB_ENV
-          # If VERSION is known (or parsed from a file/command), set it here:
           echo "VERSION=1.2.3" >> $GITHUB_ENV
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true # Get JUCE populated
+          submodules: true
 
       - name: Save main repo commit to file (macOS)
         if: ${{ matrix.name == 'macOS' }}
@@ -123,7 +121,6 @@ jobs:
       # [================ Upload To Google Drive ================]
       # [========================================================]
 
-      # Authenticate with Google Cloud and upload macOS artifacts to Google Drive
       - name: Authenticate and Configure Google Cloud
         id: auth
         uses: google-github-actions/auth@v1
@@ -150,7 +147,7 @@ jobs:
           service = build('drive', 'v3', credentials=creds)
 
           def find_or_create_folder(name, parent_id=None):
-              query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+              query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false and sharedWithMe=true"
               if parent_id:
                   query += f" and '{parent_id}' in parents"
               results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
@@ -166,7 +163,8 @@ jobs:
               folder = service.files().create(body=file_metadata, fields='id').execute()
               return folder.get('id')
 
-          ROOT_FOLDER_NAME = "Release"
+          # Use the pre-shared top-level folder "Releases"
+          ROOT_FOLDER_NAME = "Releases"
           PRODUCT_NAME = os.getenv('PRODUCT_NAME')
           VERSION = os.getenv('VERSION')
 
@@ -183,7 +181,7 @@ jobs:
 
           # SHARE FOLDER WITH SPECIFIC USER AS EDITOR
           permission_body = {
-              'role': 'writer',   # Writer grants editor access
+              'role': 'writer',
               'type': 'user',
               'emailAddress': 'satbir@sottovocedsp.com'
           }
