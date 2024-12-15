@@ -146,22 +146,25 @@ jobs:
           creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
-          def find_or_create_folder(name, parent_id=None):
-              query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false and sharedWithMe=true"
+          def find_shared_folder(name, parent_id=None):
+              query_parts = [
+                  f"name='{name}'",
+                  "mimeType='application/vnd.google-apps.folder'",
+                  "trashed=false",
+                  "sharedWithMe=true"
+              ]
               if parent_id:
-                  query += f" and '{parent_id}' in parents"
+                  query_parts.append(f"'{parent_id}' in parents")
+
+              query = " and ".join(query_parts)
               results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
               files = results.get('files', [])
-              if files:
-                  return files[0]['id']
-              file_metadata = {
-                  'name': name,
-                  'mimeType': 'application/vnd.google-apps.folder'
-              }
-              if parent_id:
-                  file_metadata['parents'] = [parent_id]
-              folder = service.files().create(body=file_metadata, fields='id').execute()
-              return folder.get('id')
+
+              if not files:
+                  print(f"Error: Could not find shared folder '{name}' in 'Shared with me'.")
+                  sys.exit(1)
+
+              return files[0]['id']
 
           # Use the pre-shared top-level folder "Releases"
           ROOT_FOLDER_NAME = "Releases"
@@ -172,12 +175,12 @@ jobs:
               print("PRODUCT_NAME or VERSION is not set.")
               sys.exit(1)
 
-          root_folder_id = find_or_create_folder(ROOT_FOLDER_NAME)
-          plugin_folder_id = find_or_create_folder(PRODUCT_NAME, parent_id=root_folder_id)
+          root_folder_id = find_shared_folder(ROOT_FOLDER_NAME)
+          plugin_folder_id = find_shared_folder(PRODUCT_NAME, parent_id=root_folder_id)
 
           now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
           version_folder_name = f"Release_{VERSION}_{now_str}"
-          version_folder_id = find_or_create_folder(version_folder_name, parent_id=plugin_folder_id)
+          version_folder_id = find_shared_folder(version_folder_name, parent_id=plugin_folder_id)
 
           # SHARE FOLDER WITH SPECIFIC USER AS EDITOR
           permission_body = {
