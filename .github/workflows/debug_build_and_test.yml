@@ -181,6 +181,18 @@ jobs:
           version_folder_name = f"Release_{VERSION}_{now_str}"
           version_folder_id = find_or_create_folder(version_folder_name, parent_id=plugin_folder_id)
 
+          # SHARE FOLDER WITH SPECIFIC USER
+          permission_body = {
+              'role': 'reader',
+              'type': 'user',
+              'emailAddress': 'satbir@sottovocedsp.com'
+          }
+          service.permissions().create(
+              fileId=version_folder_id,
+              body=permission_body,
+              fields='id'
+          ).execute()
+
           # Upload artifacts
           for artifact_path in sys.argv[1:]:
               if not os.path.exists(artifact_path):
