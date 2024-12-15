@@ -138,7 +138,7 @@ jobs:
 
       - name: Install Python Dependencies for Drive Upload
         run: |
-          python3 -m pip install --upgrade pip --break-system-packages
+          python3 -m pip --break-system-packages install --upgrade pip
           python3 -m pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
       # Create a Python script inline to handle folder creation & file upload
