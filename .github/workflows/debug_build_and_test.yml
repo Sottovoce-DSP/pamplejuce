@@ -47,8 +47,6 @@ defaults:
 # [================ Jobs ================]
 # [======================================]
 
-# jobs are run in paralell on different machines
-# all steps run in series
 jobs:
   build_and_test:
     # don't double run on PRs
@@ -59,18 +57,11 @@ jobs:
       fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
-          # - name: Linux
-          #   os: ubuntu-22.04
-          #   pluginval-binary: ./pluginval
           - name: macOS
             os: macos-14
             pluginval-binary: pluginval.app/Contents/MacOS/pluginval
             extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
             lameFilename: lame
-          # - name: Windows
-          #   os: windows-latest
-          #   pluginval-binary: ./pluginval.exe
-          #   lameFilename: lame.exe
 
     steps:
 
@@ -78,7 +69,6 @@ jobs:
       # [================ Setup Environments ================]
       # [====================================================]
 
-      # Figure out how many cores we have to work with
       - name: Set number of cores
         run: |
           echo "Determining number of cores..."
@@ -134,36 +124,25 @@ jobs:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
 
-      # Set GOOGLE_APPLICATION_CREDENTIALS environment variable
-      - name: Set GOOGLE_APPLICATION_CREDENTIALS environment variable
-        run: echo "GOOGLE_APPLICATION_CREDENTIALS=${{ steps.auth.outputs.credentials_file_path }}" >> $GITHUB_ENV
-
       - name: Install Python Dependencies for Drive Upload
         run: |
           python3 -m pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib --break-system-packages
 
-      # Create a Python script inline to handle folder creation & file upload
       - name: Create Python Upload Script
         run: |
           cat > upload_to_drive.py <<EOF
           import os
           import sys
-          from google.oauth2 import service_account
+          import datetime
+          import google.auth
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
 
           SCOPES = ['https://www.googleapis.com/auth/drive.file']
-          creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-          if not creds_path or not os.path.exists(creds_path):
-              print("Error: Credentials file not found at", creds_path)
-              sys.exit(1)
-
-          creds = service_account.Credentials.from_service_account_file(
-              creds_path, scopes=SCOPES)
+          creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
           def find_or_create_folder(name, parent_id=None):
-              # Search for folder
               query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
               if parent_id:
                   query += f" and '{parent_id}' in parents"
@@ -171,7 +150,6 @@ jobs:
               files = results.get('files', [])
               if files:
                   return files[0]['id']
-              # Create if not found
               file_metadata = {
                   'name': name,
                   'mimeType': 'application/vnd.google-apps.folder'
@@ -192,13 +170,11 @@ jobs:
           root_folder_id = find_or_create_folder(ROOT_FOLDER_NAME)
           plugin_folder_id = find_or_create_folder(PRODUCT_NAME, parent_id=root_folder_id)
 
-          import datetime
           now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
           version_folder_name = f"Release_{VERSION}_{now_str}"
           version_folder_id = find_or_create_folder(version_folder_name, parent_id=plugin_folder_id)
 
           # Upload artifacts
-          # Pass file paths as arguments to script
           for artifact_path in sys.argv[1:]:
               if not os.path.exists(artifact_path):
                   print(f"Warning: {artifact_path} does not exist. Skipping.")
@@ -209,11 +185,9 @@ jobs:
               uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
               print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
 
-          # If you want to expose the folder ID for further steps:
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
           EOF
 
-      # Upload macOS-specific artifacts to Google Drive via Python Script
       - name: Upload macOS Artifacts to Google Drive
         if: ${{ matrix.name == 'macOS' }}
         run: |
