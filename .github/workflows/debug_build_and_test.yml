@@ -150,7 +150,7 @@ jobs:
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
 
-          SCOPES = ['https://www.googleapis.com/auth/drive.file']
+          SCOPES = ['https://www.googleapis.com/auth/drive']
           creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
