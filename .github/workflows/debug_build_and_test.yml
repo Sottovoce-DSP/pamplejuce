@@ -118,7 +118,7 @@ jobs:
           path: main_repo_commit.txt
 
       # [========================================================]
-      # [================ Upload To Google Drive ================]
+      # [================ Authenticate to Google Cloud ============]
       # [========================================================]
 
       - name: Authenticate and Configure Google Cloud
@@ -128,9 +128,18 @@ jobs:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
 
+      # [========================================================]
+      # [================ Install Python Dependencies ===========]
+      # [========================================================]
+
       - name: Install Python Dependencies for Drive Upload
         run: |
+          python3 -m pip install --upgrade pip
           python3 -m pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib --break-system-packages
+
+      # [========================================================]
+      # [================ Create Python Scripts ==================]
+      # [========================================================]
 
       - name: Create Python Upload Script
         run: |
@@ -207,6 +216,56 @@ jobs:
 
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
           EOF
+
+      - name: Create Python List Folders Script
+        run: |
+          cat > list_folders.py <<EOF
+          import os
+          import sys
+          import google.auth
+          from googleapiclient.discovery import build
+
+          SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+          creds, project_id = google.auth.default(scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
+
+          def list_all_folders():
+              query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
+              page_token = None
+              while True:
+                  response = service.files().list(q=query,
+                                                  spaces='drive',
+                                                  fields='nextPageToken, files(id, name, owners)',
+                                                  pageToken=page_token).execute()
+                  for folder in response.get('files', []):
+                      print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {[owner.get('emailAddress') for owner in folder.get('owners', [])]}")
+                  page_token = response.get('nextPageToken', None)
+                  if page_token is None:
+                      break
+
+          if __name__ == "__main__":
+              print("Listing all accessible folders:")
+              list_all_folders()
+          EOF
+
+      # [========================================================]
+      # [================ List Accessible Folders ================]
+      # [========================================================]
+
+      - name: List Accessible Folders
+        run: |
+          echo "Listing all accessible folders for the service account..."
+          python3 list_folders.py > accessible_folders.txt
+          cat accessible_folders.txt
+          # Optionally, upload the list as an artifact for debugging
+          echo "Uploading accessible_folders.txt as an artifact..."
+          mkdir -p debug
+          mv accessible_folders.txt debug/
+          echo "Accessible folders listed above."
+
+      # [========================================================]
+      # [================ Upload To Google Drive ================]
+      # [========================================================]
 
       - name: Upload macOS Artifacts to Google Drive
         if: ${{ matrix.name == 'macOS' }}
