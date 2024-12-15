@@ -181,9 +181,9 @@ jobs:
           version_folder_name = f"Release_{VERSION}_{now_str}"
           version_folder_id = find_or_create_folder(version_folder_name, parent_id=plugin_folder_id)
 
-          # SHARE FOLDER WITH SPECIFIC USER
+          # SHARE FOLDER WITH SPECIFIC USER AS EDITOR
           permission_body = {
-              'role': 'reader',
+              'role': 'writer',   # Writer grants editor access
               'type': 'user',
               'emailAddress': 'satbir@sottovocedsp.com'
           }
