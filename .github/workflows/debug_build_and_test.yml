@@ -126,15 +126,17 @@ jobs:
       # [================ Upload To Google Drive ================]
       # [========================================================]
 
-      # Authenticate and Configure Google Cloud via OIDC
+      # Authenticate with Google Cloud and upload macOS artifacts to Google Drive
       - name: Authenticate and Configure Google Cloud
+        id: auth
         uses: google-github-actions/auth@v1
         with:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
-      
+
+      # Set GOOGLE_APPLICATION_CREDENTIALS environment variable
       - name: Set GOOGLE_APPLICATION_CREDENTIALS environment variable
-        run: echo "GOOGLE_APPLICATION_CREDENTIALS=${{ runner.temp }}/gha-creds.json" >> $GITHUB_ENV
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=${{ steps.auth.outputs.credentials_file_path }}" >> $GITHUB_ENV
 
       - name: Install Python Dependencies for Drive Upload
         run: |
