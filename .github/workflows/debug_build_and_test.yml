@@ -150,11 +150,12 @@ jobs:
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
 
+          # Updated SCOPES for full Drive access
           SCOPES = ['https://www.googleapis.com/auth/drive']
           creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
-          def find_shared_folder(name, parent_id=None, owner_email=None):
+          def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
               query_parts = [
                   f"name='{name}'",
                   "mimeType='application/vnd.google-apps.folder'",
@@ -175,11 +176,27 @@ jobs:
               files = results.get('files', [])
 
               if not files:
-                  if owner_email:
-                      print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
+                  if create_if_not_found:
+                      print(f"Folder '{name}' not found. Creating it...")
+                      folder_metadata = {
+                          'name': name,
+                          'mimeType': 'application/vnd.google-apps.folder'
+                      }
+                      if parent_id:
+                          folder_metadata['parents'] = [parent_id]
+                      # Note: Setting owners directly is not supported via API
+                      folder = service.files().create(
+                          body=folder_metadata,
+                          fields='id'
+                      ).execute()
+                      print(f"Created folder '{name}' with ID: {folder.get('id')}")
+                      return folder.get('id')
                   else:
-                      print(f"Error: Could not find folder '{name}'.")
-                  sys.exit(1)
+                      if owner_email:
+                          print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
+                      else:
+                          print(f"Error: Could not find folder '{name}'.")
+                      sys.exit(1)
 
               if len(files) > 1:
                   print(f"Warning: Multiple folders named '{name}' found. Using the first one: {files[0]['id']}")
@@ -200,12 +217,20 @@ jobs:
           root_folder_id = find_shared_folder(ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
 
           # Within the root 'Releases' folder, find or create the plugin folder
-          plugin_folder_id = find_shared_folder(PRODUCT_NAME, parent_id=root_folder_id)
+          plugin_folder_id = find_shared_folder(
+              PRODUCT_NAME, 
+              parent_id=root_folder_id, 
+              create_if_not_found=True
+          )
 
           # Create a version-specific subfolder within the plugin folder
           now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
           version_folder_name = f"Release_{VERSION}_{now_str}"
-          version_folder_id = find_shared_folder(version_folder_name, parent_id=plugin_folder_id)
+          version_folder_id = find_shared_folder(
+              version_folder_name, 
+              parent_id=plugin_folder_id, 
+              create_if_not_found=True
+          )
 
           # SHARE FOLDER WITH SPECIFIC USER AS EDITOR
           permission_body = {
