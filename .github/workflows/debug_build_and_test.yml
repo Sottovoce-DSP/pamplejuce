@@ -233,6 +233,37 @@ jobs:
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
           EOF
 
+      - name: Create Python List Folders Script
+        run: |
+          cat > list_folders.py <<EOF
+          import os
+          import sys
+          import google.auth
+          from googleapiclient.discovery import build
+
+          SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+          creds, project_id = google.auth.default(scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
+
+          def list_all_folders():
+              query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
+              page_token = None
+              while True:
+                  response = service.files().list(q=query,
+                                                  spaces='drive',
+                                                  fields='nextPageToken, files(id, name, owners)',
+                                                  pageToken=page_token).execute()
+                  for folder in response.get('files', []):
+                      print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {[owner.get('emailAddress') for owner in folder.get('owners', [])]}")
+                  page_token = response.get('nextPageToken', None)
+                  if page_token is None:
+                      break
+
+          if __name__ == "__main__":
+              print("Listing all accessible folders:")
+              list_all_folders()
+          EOF
+
       # [========================================================]
       # [================ List Accessible Folders ================]
       # [========================================================]
