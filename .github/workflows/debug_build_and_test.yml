@@ -154,28 +154,41 @@ jobs:
           creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
-          def find_shared_folder(name, parent_id=None):
+          def find_shared_folder(name, parent_id=None, owner_email=None):
               query_parts = [
                   f"name='{name}'",
                   "mimeType='application/vnd.google-apps.folder'",
                   "trashed=false"
-                  # Removed "sharedWithMe=true"
               ]
               if parent_id:
                   query_parts.append(f"'{parent_id}' in parents")
+              if owner_email:
+                  query_parts.append(f"'{owner_email}' in owners")
 
               query = " and ".join(query_parts)
-              results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+              results = service.files().list(
+                  q=query,
+                  spaces='drive',
+                  fields='files(id, name)',
+                  pageSize=1000
+              ).execute()
               files = results.get('files', [])
 
               if not files:
-                  print(f"Error: Could not find folder '{name}'.")
+                  if owner_email:
+                      print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
+                  else:
+                      print(f"Error: Could not find folder '{name}'.")
                   sys.exit(1)
 
+              if len(files) > 1:
+                  print(f"Warning: Multiple folders named '{name}' found. Using the first one: {files[0]['id']}")
+              
               return files[0]['id']
 
-          # Use the pre-shared top-level folder "Releases"
+          # Use the pre-shared top-level folder "Releases" owned by 'satbir@sottovocedsp.com'
           ROOT_FOLDER_NAME = "Releases"
+          ROOT_FOLDER_OWNER = "satbir@sottovocedsp.com"
           PRODUCT_NAME = os.getenv('PRODUCT_NAME')
           VERSION = os.getenv('VERSION')
 
@@ -183,9 +196,13 @@ jobs:
               print("PRODUCT_NAME or VERSION is not set.")
               sys.exit(1)
 
-          root_folder_id = find_shared_folder(ROOT_FOLDER_NAME)
+          # Find the root 'Releases' folder owned by 'satbir@sottovocedsp.com'
+          root_folder_id = find_shared_folder(ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
+
+          # Within the root 'Releases' folder, find or create the plugin folder
           plugin_folder_id = find_shared_folder(PRODUCT_NAME, parent_id=root_folder_id)
 
+          # Create a version-specific subfolder within the plugin folder
           now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
           version_folder_name = f"Release_{VERSION}_{now_str}"
           version_folder_id = find_shared_folder(version_folder_name, parent_id=plugin_folder_id)
@@ -214,36 +231,6 @@ jobs:
               print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
 
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
-          EOF
-      - name: Create Python List Folders Script
-        run: |
-          cat > list_folders.py <<EOF
-          import os
-          import sys
-          import google.auth
-          from googleapiclient.discovery import build
-
-          SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
-          creds, project_id = google.auth.default(scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
-
-          def list_all_folders():
-              query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
-              page_token = None
-              while True:
-                  response = service.files().list(q=query,
-                                                  spaces='drive',
-                                                  fields='nextPageToken, files(id, name, owners)',
-                                                  pageToken=page_token).execute()
-                  for folder in response.get('files', []):
-                      print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {[owner.get('emailAddress') for owner in folder.get('owners', [])]}")
-                  page_token = response.get('nextPageToken', None)
-                  if page_token is None:
-                      break
-
-          if __name__ == "__main__":
-              print("Listing all accessible folders:")
-              list_all_folders()
           EOF
 
       # [========================================================]
