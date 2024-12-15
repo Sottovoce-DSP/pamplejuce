@@ -158,8 +158,8 @@ jobs:
               query_parts = [
                   f"name='{name}'",
                   "mimeType='application/vnd.google-apps.folder'",
-                  "trashed=false",
-                  "sharedWithMe=true"
+                  "trashed=false"
+                  # Removed "sharedWithMe=true"
               ]
               if parent_id:
                   query_parts.append(f"'{parent_id}' in parents")
@@ -169,7 +169,7 @@ jobs:
               files = results.get('files', [])
 
               if not files:
-                  print(f"Error: Could not find shared folder '{name}' in 'Shared with me'.")
+                  print(f"Error: Could not find folder '{name}'.")
                   sys.exit(1)
 
               return files[0]['id']
@@ -215,7 +215,6 @@ jobs:
 
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
           EOF
-
       - name: Create Python List Folders Script
         run: |
           cat > list_folders.py <<EOF
