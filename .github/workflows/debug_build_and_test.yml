@@ -126,8 +126,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v1
         with:
-          access_token_subject: satbir@sottovocedsp.com
-          token_format: access_token
+          workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
           create_credentials_file: true
           export_environment_variables: true
 
