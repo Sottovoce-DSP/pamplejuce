@@ -126,9 +126,11 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v1
         with:
-          workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
           access_token_subject: satbir@sottovocedsp.com
+              access_token_scopes: |
+                https://www.googleapis.com/auth/drive
+                https://www.googleapis.com/auth/drive.metadata
+          token_format: access_token
           create_credentials_file: true
           export_environment_variables: true
 
@@ -164,12 +166,37 @@ jobs:
 
           def build_service():
               try:
+                  print("Getting default credentials...")
                   creds, project_id = google.auth.default(scopes=SCOPES)
-                  service = build('drive', 'v3', credentials=creds)
+                  
+                  # Print the current credentials identity for debugging
+                  print(f"Initial credential type: {type(creds)}")
+                  
+                  # Get token source for impersonation
+                  from google.auth import impersonated_credentials
+                  
+                  target_principal = "satbir@sottovocedsp.com"
+                  source_credentials = creds
+                  
+                  # Create impersonated credentials
+                  target_credentials = impersonated_credentials.Credentials(
+                      source_credentials=source_credentials,
+                      target_principal=target_principal,
+                      target_scopes=SCOPES,
+                      lifetime=3600  # 1 hour token lifetime
+                  )
+                  
+                  print(f"Impersonated credential type: {type(target_credentials)}")
+                  service = build('drive', 'v3', credentials=target_credentials)
+                  
+                  # Test the credentials
+                  about = service.about().get(fields="user").execute()
+                  print(f"Authenticated as: {about['user']['emailAddress']}")
+                  
                   return service
-              except DefaultCredentialsError as e:
-                  print(f"Failed to obtain default credentials: {e}")
-                  sys.exit(1)
+              except Exception as e:
+                  print(f"Failed to build service with impersonation: {e}")
+                  raise
 
           def find_shared_folder(service, name, parent_id=None, owner_email=None, create_if_not_found=False):
               query_parts = [
@@ -304,16 +331,41 @@ jobs:
           from google.auth.exceptions import DefaultCredentialsError
           from googleapiclient.errors import HttpError
 
-          SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+          SCOPES = ['https://www.googleapis.com/auth/drive.metadata']
 
           def build_service():
               try:
+                  print("Getting default credentials...")
                   creds, project_id = google.auth.default(scopes=SCOPES)
-                  service = build('drive', 'v3', credentials=creds)
+                  
+                  # Print the current credentials identity for debugging
+                  print(f"Initial credential type: {type(creds)}")
+                  
+                  # Get token source for impersonation
+                  from google.auth import impersonated_credentials
+                  
+                  target_principal = "satbir@sottovocedsp.com"
+                  source_credentials = creds
+                  
+                  # Create impersonated credentials
+                  target_credentials = impersonated_credentials.Credentials(
+                      source_credentials=source_credentials,
+                      target_principal=target_principal,
+                      target_scopes=SCOPES,
+                      lifetime=3600  # 1 hour token lifetime
+                  )
+                  
+                  print(f"Impersonated credential type: {type(target_credentials)}")
+                  service = build('drive', 'v3', credentials=target_credentials)
+                  
+                  # Test the credentials
+                  about = service.about().get(fields="user").execute()
+                  print(f"Authenticated as: {about['user']['emailAddress']}")
+                  
                   return service
-              except DefaultCredentialsError as e:
-                  print(f"Failed to obtain default credentials: {e}")
-                  sys.exit(1)
+              except Exception as e:
+                  print(f"Failed to build service with impersonation: {e}")
+                  raise
 
           def list_all_folders(service):
               query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
