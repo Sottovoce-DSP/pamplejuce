@@ -149,8 +149,8 @@ jobs:
           import os
           import sys
           import google.auth
+          from google.auth import impersonated_credentials
           from googleapiclient.discovery import build
-          from google.auth.exceptions import DefaultCredentialsError
           from googleapiclient.errors import HttpError
 
           SCOPES = [
@@ -183,7 +183,15 @@ jobs:
                   print("Getting default credentials for Admin SDK...")
                   creds, project_id = google.auth.default(scopes=SCOPES)
                   
-                  service = build('admin', 'directory_v1', credentials=creds)
+                  target_principal = "satbir@sottovocedsp.com"
+                  target_credentials = impersonated_credentials.Credentials(
+                      source_credentials=creds,
+                      target_principal=target_principal,
+                      target_scopes=SCOPES,
+                      lifetime=3600  # 1 hour token lifetime
+                  )
+                  
+                  service = build('admin', 'directory_v1', credentials=target_credentials)
                   return service
               except Exception as e:
                   print(f"Failed to build Admin SDK service: {e}")
@@ -203,8 +211,8 @@ jobs:
           import os
           import sys
           import google.auth
+          from google.auth import impersonated_credentials
           from googleapiclient.discovery import build
-          from google.auth.exceptions import DefaultCredentialsError
           from googleapiclient.errors import HttpError
 
           SCOPES = ['https://www.googleapis.com/auth/drive.metadata']
