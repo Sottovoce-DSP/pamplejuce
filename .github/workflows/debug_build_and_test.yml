@@ -153,7 +153,12 @@ jobs:
           from google.auth.exceptions import DefaultCredentialsError
           from googleapiclient.errors import HttpError
 
-          SCOPES = ['https://www.googleapis.com/auth/admin.directory.user.readonly']
+          SCOPES = [
+              'https://www.googleapis.com/auth/admin.directory.user.readonly',
+              'https://www.googleapis.com/auth/userinfo.email',
+              'https://www.googleapis.com/auth/drive.metadata',
+              'https://www.googleapis.com/auth/drive'
+          ]
 
           def list_all_users(service):
               try:
