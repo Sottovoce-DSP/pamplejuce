@@ -38,7 +38,7 @@ env:
   IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
   SHOULD_STRIP_SYMBOLS: false
   TEST_SYMBOL: processBlock
-  # Removed USER_TO_IMPERSONATE since impersonation is handled in authentication
+  # Removed USER_TO_IMPERSONate since impersonation is handled in authentication
 
 defaults:
   run:
@@ -151,6 +151,8 @@ jobs:
           import google.auth
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
+          from google.auth.exceptions import DefaultCredentialsError
+          from googleapiclient.errors import HttpError
 
           # Updated SCOPES for full Drive access and metadata
           SCOPES = [
@@ -158,11 +160,16 @@ jobs:
               'https://www.googleapis.com/auth/drive.metadata'
           ]
 
-          # Obtain default credentials (already impersonating the user)
-          creds, project_id = google.auth.default(scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
+          def build_service():
+              try:
+                  creds, project_id = google.auth.default(scopes=SCOPES)
+                  service = build('drive', 'v3', credentials=creds)
+                  return service
+              except DefaultCredentialsError as e:
+                  print(f"Failed to obtain default credentials: {e}")
+                  sys.exit(1)
 
-          def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
+          def find_shared_folder(service, name, parent_id=None, owner_email=None, create_if_not_found=False):
               query_parts = [
                   f"name='{name}'",
                   "mimeType='application/vnd.google-apps.folder'",
@@ -174,13 +181,17 @@ jobs:
                   query_parts.append(f"'{owner_email}' in owners")
 
               query = " and ".join(query_parts)
-              results = service.files().list(
-                  q=query,
-                  spaces='drive',
-                  fields='files(id, name)',
-                  pageSize=1000
-              ).execute()
-              files = results.get('files', [])
+              try:
+                  results = service.files().list(
+                      q=query,
+                      spaces='drive',
+                      fields='files(id, name)',
+                      pageSize=1000
+                  ).execute()
+                  files = results.get('files', [])
+              except HttpError as e:
+                  print(f"An error occurred while listing folders: {e}")
+                  sys.exit(1)
 
               if not files:
                   if create_if_not_found:
@@ -191,12 +202,16 @@ jobs:
                       }
                       if parent_id:
                           folder_metadata['parents'] = [parent_id]
-                      folder = service.files().create(
-                          body=folder_metadata,
-                          fields='id'
-                      ).execute()
-                      print(f"Created folder '{name}' with ID: {folder.get('id')}")
-                      return folder.get('id')
+                      try:
+                          folder = service.files().create(
+                              body=folder_metadata,
+                              fields='id'
+                          ).execute()
+                          print(f"Created folder '{name}' with ID: {folder.get('id')}")
+                          return folder.get('id')
+                      except HttpError as e:
+                          print(f"Failed to create folder '{name}': {e}")
+                          sys.exit(1)
                   else:
                       if owner_email:
                           print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
@@ -209,73 +224,72 @@ jobs:
 
               return files[0]['id']
 
-          # Use the pre-shared top-level folder "Releases" owned by ROOT_FOLDER_OWNER
-          ROOT_FOLDER_NAME = "Releases"
-          ROOT_FOLDER_OWNER = "satbir@sottovocedsp.com"
-          DRIVE_NEW_OWNER = "satbir@sottovocedsp.com"
-          PRODUCT_NAME = os.getenv('PRODUCT_NAME')
-          VERSION = os.getenv('VERSION')
+          def main():
+              service = build_service()
 
-          if not PRODUCT_NAME or not VERSION:
-              print("PRODUCT_NAME or VERSION is not set.")
-              sys.exit(1)
+              # Use the pre-shared top-level folder "Releases" owned by ROOT_FOLDER_OWNER
+              ROOT_FOLDER_NAME = "Releases"
+              ROOT_FOLDER_OWNER = "satbir@sottovocedsp.com"
+              DRIVE_NEW_OWNER = "satbir@sottovocedsp.com"
+              PRODUCT_NAME = os.getenv('PRODUCT_NAME')
+              VERSION = os.getenv('VERSION')
 
-          # Find the root 'Releases' folder owned by ROOT_FOLDER_OWNER
-          root_folder_id = find_shared_folder(ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
+              if not PRODUCT_NAME or not VERSION:
+                  print("PRODUCT_NAME or VERSION is not set.")
+                  sys.exit(1)
 
-          # Within the root 'Releases' folder, find or create the plugin folder
-          plugin_folder_id = find_shared_folder(
-              PRODUCT_NAME, 
-              parent_id=root_folder_id, 
-              create_if_not_found=True
-          )
+              # Find the root 'Releases' folder owned by ROOT_FOLDER_OWNER
+              root_folder_id = find_shared_folder(service, ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
 
-          # Create a version-specific subfolder within the plugin folder
-          # Updated to use timezone-aware datetime
-          now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d_%H-%M")
-          version_folder_name = f"Release_{VERSION}_{now_str}"
-          version_folder_id = find_shared_folder(
-              version_folder_name, 
-              parent_id=plugin_folder_id, 
-              create_if_not_found=True
-          )
+              # Within the root 'Releases' folder, find or create the plugin folder
+              plugin_folder_id = find_shared_folder(service, PRODUCT_NAME, parent_id=root_folder_id, create_if_not_found=True)
 
-          # Grant writer access to the user (optional, since we're acting as the user)
-          permission_body_writer = {
-              'role': 'writer',
-              'type': 'user',
-              'emailAddress': DRIVE_NEW_OWNER
-          }
-          try:
-              service.permissions().create(
-                  fileId=version_folder_id,
-                  body=permission_body_writer,
-                  fields='id'
-              ).execute()
-              print(f"Granted writer access to folder '{version_folder_name}' for '{DRIVE_NEW_OWNER}'.")
-          except googleapiclient.errors.HttpError as error:
-              print(f"An error occurred while granting permissions: {error}")
-              sys.exit(1)
+              # Create a version-specific subfolder within the plugin folder
+              now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d_%H-%M")
+              version_folder_name = f"Release_{VERSION}_{now_str}"
+              version_folder_id = find_shared_folder(service, version_folder_name, parent_id=plugin_folder_id, create_if_not_found=True)
 
-          # Since we're impersonating the user, transferring ownership is unnecessary
-          # Files created will be owned by the impersonated user
-
-          # Upload artifacts
-          for artifact_path in sys.argv[1:]:
-              if not os.path.exists(artifact_path):
-                  print(f"Warning: {artifact_path} does not exist. Skipping.")
-                  continue
-              file_name = os.path.basename(artifact_path)
-              media = MediaFileUpload(artifact_path, resumable=True)
-              body = {'name': file_name, 'parents': [version_folder_id]}
+              # Grant writer access to the user (optional, since we're acting as the user)
+              permission_body_writer = {
+                  'role': 'writer',
+                  'type': 'user',
+                  'emailAddress': DRIVE_NEW_OWNER
+              }
               try:
-                  uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
-                  print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
-              except googleapiclient.errors.HttpError as error:
-                  print(f"Failed to upload {artifact_path}: {error}")
-                  continue
+                  service.permissions().create(
+                      fileId=version_folder_id,
+                      body=permission_body_writer,
+                      fields='id'
+                  ).execute()
+                  print(f"Granted writer access to folder '{version_folder_name}' for '{DRIVE_NEW_OWNER}'.")
+              except HttpError as error:
+                  print(f"An error occurred while granting permissions: {error}")
+                  sys.exit(1)
 
-          print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
+              # Since we're impersonating the user, transferring ownership is unnecessary
+              # Files created will be owned by the impersonated user
+
+              # Upload artifacts
+              for artifact_path in sys.argv[1:]:
+                  if not os.path.exists(artifact_path):
+                      print(f"Warning: {artifact_path} does not exist. Skipping.")
+                      continue
+                  file_name = os.path.basename(artifact_path)
+                  media = MediaFileUpload(artifact_path, resumable=True)
+                  body = {'name': file_name, 'parents': [version_folder_id]}
+                  try:
+                      uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
+                      print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
+                  except HttpError as error:
+                      print(f"Failed to upload {artifact_path}: {error}")
+                      continue
+
+              # Set output using environment files
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                  fh.write(f"VERSION_FOLDER_ID={version_folder_id}\n")
+
+          if __name__ == "__main__":
+              main()
           EOF
 
       - name: Create Python List Folders Script
@@ -285,32 +299,48 @@ jobs:
           import sys
           import google.auth
           from googleapiclient.discovery import build
+          from google.auth.exceptions import DefaultCredentialsError
+          from googleapiclient.errors import HttpError
 
           SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
 
-          # Obtain default credentials (already impersonating the user)
-          creds, project_id = google.auth.default(scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
+          def build_service():
+              try:
+                  creds, project_id = google.auth.default(scopes=SCOPES)
+                  service = build('drive', 'v3', credentials=creds)
+                  return service
+              except DefaultCredentialsError as e:
+                  print(f"Failed to obtain default credentials: {e}")
+                  sys.exit(1)
 
-          def list_all_folders():
+          def list_all_folders(service):
               query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
               page_token = None
               while True:
-                  response = service.files().list(
-                      q=query,
-                      spaces='drive',
-                      fields='nextPageToken, files(id, name, owners)',
-                      pageToken=page_token
-                  ).execute()
-                  for folder in response.get('files', []):
-                      print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {[owner.get('emailAddress') for owner in folder.get('owners', [])]}")
-                  page_token = response.get('nextPageToken', None)
-                  if page_token is None:
-                      break
+                  try:
+                      response = service.files().list(
+                          q=query,
+                          spaces='drive',
+                          fields='nextPageToken, files(id, name, owners)',
+                          pageToken=page_token
+                      ).execute()
+                      for folder in response.get('files', []):
+                          owners = [owner.get('emailAddress') for owner in folder.get('owners', [])]
+                          print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {owners}")
+                      page_token = response.get('nextPageToken', None)
+                      if page_token is None:
+                          break
+                  except HttpError as e:
+                      print(f"An error occurred while listing folders: {e}")
+                      sys.exit(1)
+
+          def main():
+              service = build_service()
+              print("Listing all accessible folders:")
+              list_all_folders(service)
 
           if __name__ == "__main__":
-              print("Listing all accessible folders:")
-              list_all_folders()
+              main()
           EOF
 
       # [========================================================]
