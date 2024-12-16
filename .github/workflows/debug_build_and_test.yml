@@ -140,141 +140,141 @@ jobs:
       # [================ Create Python Scripts ==================]
       # [========================================================]
 
-        - name: Create Python Upload Script
-          run: |
-            cat > upload_to_drive.py <<EOF
-            import os
-            import sys
-            import datetime
-            import google.auth
-            from googleapiclient.discovery import build
-            from googleapiclient.http import MediaFileUpload
+      - name: Create Python Upload Script
+        run: |
+          cat > upload_to_drive.py <<EOF
+          import os
+          import sys
+          import datetime
+          import google.auth
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
 
-            # Updated SCOPES for full Drive access and metadata
-            SCOPES = [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.metadata'
-            ]
-            creds, project_id = google.auth.default(scopes=SCOPES)
-            service = build('drive', 'v3', credentials=creds)
+          # Updated SCOPES for full Drive access and metadata
+          SCOPES = [
+              'https://www.googleapis.com/auth/drive',
+              'https://www.googleapis.com/auth/drive.metadata'
+          ]
+          creds, project_id = google.auth.default(scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
 
-            def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
-                query_parts = [
-                    f"name='{name}'",
-                    "mimeType='application/vnd.google-apps.folder'",
-                    "trashed=false"
-                ]
-                if parent_id:
-                    query_parts.append(f"'{parent_id}' in parents")
-                if owner_email:
-                    query_parts.append(f"'{owner_email}' in owners")
+          def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
+              query_parts = [
+                  f"name='{name}'",
+                  "mimeType='application/vnd.google-apps.folder'",
+                  "trashed=false"
+              ]
+              if parent_id:
+                  query_parts.append(f"'{parent_id}' in parents")
+              if owner_email:
+                  query_parts.append(f"'{owner_email}' in owners")
 
-                query = " and ".join(query_parts)
-                results = service.files().list(
-                    q=query,
-                    spaces='drive',
-                    fields='files(id, name)',
-                    pageSize=1000
-                ).execute()
-                files = results.get('files', [])
+              query = " and ".join(query_parts)
+              results = service.files().list(
+                  q=query,
+                  spaces='drive',
+                  fields='files(id, name)',
+                  pageSize=1000
+              ).execute()
+              files = results.get('files', [])
 
-                if not files:
-                    if create_if_not_found:
-                        print(f"Folder '{name}' not found. Creating it...")
-                        folder_metadata = {
-                            'name': name,
-                            'mimeType': 'application/vnd.google-apps.folder'
-                        }
-                        if parent_id:
-                            folder_metadata['parents'] = [parent_id]
-                        folder = service.files().create(
-                            body=folder_metadata,
-                            fields='id'
-                        ).execute()
-                        print(f"Created folder '{name}' with ID: {folder.get('id')}")
-                        return folder.get('id')
-                    else:
-                        if owner_email:
-                            print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
-                        else:
-                            print(f"Error: Could not find folder '{name}'.")
-                        sys.exit(1)
+              if not files:
+                  if create_if_not_found:
+                      print(f"Folder '{name}' not found. Creating it...")
+                      folder_metadata = {
+                          'name': name,
+                          'mimeType': 'application/vnd.google-apps.folder'
+                      }
+                      if parent_id:
+                          folder_metadata['parents'] = [parent_id]
+                      folder = service.files().create(
+                          body=folder_metadata,
+                          fields='id'
+                      ).execute()
+                      print(f"Created folder '{name}' with ID: {folder.get('id')}")
+                      return folder.get('id')
+                  else:
+                      if owner_email:
+                          print(f"Error: Could not find folder '{name}' owned by '{owner_email}'.")
+                      else:
+                          print(f"Error: Could not find folder '{name}'.")
+                      sys.exit(1)
 
-                if len(files) > 1:
-                    print(f"Warning: Multiple folders named '{name}' found. Using the first one: {files[0]['id']}")
+              if len(files) > 1:
+                  print(f"Warning: Multiple folders named '{name}' found. Using the first one: {files[0]['id']}")
 
-                return files[0]['id']
+              return files[0]['id']
 
-            # Use the pre-shared top-level folder "Releases" owned by ROOT_FOLDER_OWNER
-            ROOT_FOLDER_NAME = "Releases"
-            ROOT_FOLDER_OWNER = "satbir@sottovocedsp.com"
-            DRIVE_NEW_OWNER = "satbir@sottovocedsp.com"
-            PRODUCT_NAME = os.getenv('PRODUCT_NAME')
-            VERSION = os.getenv('VERSION')
+          # Use the pre-shared top-level folder "Releases" owned by ROOT_FOLDER_OWNER
+          ROOT_FOLDER_NAME = "Releases"
+          ROOT_FOLDER_OWNER = "satbir@sottovocedsp.com"
+          DRIVE_NEW_OWNER = "satbir@sottovocedsp.com"
+          PRODUCT_NAME = os.getenv('PRODUCT_NAME')
+          VERSION = os.getenv('VERSION')
 
-            if not PRODUCT_NAME or not VERSION:
-                print("PRODUCT_NAME or VERSION is not set.")
-                sys.exit(1)
+          if not PRODUCT_NAME or not VERSION:
+              print("PRODUCT_NAME or VERSION is not set.")
+              sys.exit(1)
 
-            # Find the root 'Releases' folder owned by ROOT_FOLDER_OWNER
-            root_folder_id = find_shared_folder(ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
+          # Find the root 'Releases' folder owned by ROOT_FOLDER_OWNER
+          root_folder_id = find_shared_folder(ROOT_FOLDER_NAME, owner_email=ROOT_FOLDER_OWNER)
 
-            # Within the root 'Releases' folder, find or create the plugin folder
-            plugin_folder_id = find_shared_folder(
-                PRODUCT_NAME, 
-                parent_id=root_folder_id, 
-                create_if_not_found=True
-            )
+          # Within the root 'Releases' folder, find or create the plugin folder
+          plugin_folder_id = find_shared_folder(
+              PRODUCT_NAME, 
+              parent_id=root_folder_id, 
+              create_if_not_found=True
+          )
 
-            # Create a version-specific subfolder within the plugin folder
-            now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
-            version_folder_name = f"Release_{VERSION}_{now_str}"
-            version_folder_id = find_shared_folder(
-                version_folder_name, 
-                parent_id=plugin_folder_id, 
-                create_if_not_found=True
-            )
+          # Create a version-specific subfolder within the plugin folder
+          now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
+          version_folder_name = f"Release_{VERSION}_{now_str}"
+          version_folder_id = find_shared_folder(
+              version_folder_name, 
+              parent_id=plugin_folder_id, 
+              create_if_not_found=True
+          )
 
-            # Step 1: Grant the new owner 'writer' access first
-            permission_body_writer = {
-                'role': 'writer',
-                'type': 'user',
-                'emailAddress': DRIVE_NEW_OWNER
-            }
-            service.permissions().create(
-                fileId=version_folder_id,
-                body=permission_body_writer,
-                fields='id'
-            ).execute()
+          # Step 1: Grant the new owner 'writer' access first
+          permission_body_writer = {
+              'role': 'writer',
+              'type': 'user',
+              'emailAddress': DRIVE_NEW_OWNER
+          }
+          service.permissions().create(
+              fileId=version_folder_id,
+              body=permission_body_writer,
+              fields='id'
+          ).execute()
 
-            # Step 2: Transfer ownership to the new owner
-            permission_body_owner = {
-                'role': 'owner',
-                'type': 'user',
-                'emailAddress': DRIVE_NEW_OWNER
-            }
-            service.permissions().create(
-                fileId=version_folder_id,
-                body=permission_body_owner,
-                transferOwnership=True,
-                fields='id'
-            ).execute()
+          # Step 2: Transfer ownership to the new owner
+          permission_body_owner = {
+              'role': 'owner',
+              'type': 'user',
+              'emailAddress': DRIVE_NEW_OWNER
+          }
+          service.permissions().create(
+              fileId=version_folder_id,
+              body=permission_body_owner,
+              transferOwnership=True,
+              fields='id'
+          ).execute()
 
-            print(f"Transferred ownership of folder '{version_folder_name}' to '{DRIVE_NEW_OWNER}'.")
+          print(f"Transferred ownership of folder '{version_folder_name}' to '{DRIVE_NEW_OWNER}'.")
 
-            # Upload artifacts
-            for artifact_path in sys.argv[1:]:
-                if not os.path.exists(artifact_path):
-                    print(f"Warning: {artifact_path} does not exist. Skipping.")
-                    continue
-                file_name = os.path.basename(artifact_path)
-                media = MediaFileUpload(artifact_path, resumable=True)
-                body = {'name': file_name, 'parents': [version_folder_id]}
-                uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
-                print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
+          # Upload artifacts
+          for artifact_path in sys.argv[1:]:
+              if not os.path.exists(artifact_path):
+                  print(f"Warning: {artifact_path} does not exist. Skipping.")
+                  continue
+              file_name = os.path.basename(artifact_path)
+              media = MediaFileUpload(artifact_path, resumable=True)
+              body = {'name': file_name, 'parents': [version_folder_id]}
+              uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
+              print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
 
-            print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
-            EOF
+          print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
+          EOF
 
       - name: Create Python List Folders Script
         run: |
