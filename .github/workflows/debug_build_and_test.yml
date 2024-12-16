@@ -206,87 +206,6 @@ jobs:
               main()
           EOF
 
-      - name: Create Python List Folders Script
-        run: |
-          cat > list_folders.py <<EOF
-          import os
-          import sys
-          import google.auth
-          from google.auth import impersonated_credentials
-          from googleapiclient.discovery import build
-          from googleapiclient.errors import HttpError
-
-          SCOPES = [
-              'https://www.googleapis.com/auth/admin.directory.user.readonly',
-              'https://www.googleapis.com/auth/userinfo.email',
-              'https://www.googleapis.com/auth/drive.metadata',
-              'https://www.googleapis.com/auth/drive'
-          ]
-
-          def build_service():
-              try:
-                  print("Getting default credentials...")
-                  creds, project_id = google.auth.default(scopes=SCOPES)
-                  
-                  # Print the current credentials identity for debugging
-                  print(f"Initial credential type: {type(creds)}")
-                  
-                  # Get token source for impersonation
-                  from google.auth import impersonated_credentials
-                  
-                  target_principal = "satbir@sottovocedsp.com"
-                  source_credentials = creds
-                  
-                  # Create impersonated credentials
-                  target_credentials = impersonated_credentials.Credentials(
-                      source_credentials=source_credentials,
-                      target_principal=target_principal,
-                      target_scopes=SCOPES,
-                      lifetime=3600  # 1 hour token lifetime
-                  )
-                  
-                  print(f"Impersonated credential type: {type(target_credentials)}")
-                  service = build('drive', 'v3', credentials=target_credentials)
-                  
-                  # Test the credentials
-                  about = service.about().get(fields="user").execute()
-                  print(f"Authenticated as: {about['user']['emailAddress']}")
-                  
-                  return service
-              except Exception as e:
-                  print(f"Failed to build service with impersonation: {e}")
-                  raise
-
-          def list_all_folders(service):
-              query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
-              page_token = None
-              while True:
-                  try:
-                      response = service.files().list(
-                          q=query,
-                          spaces='drive',
-                          fields='nextPageToken, files(id, name, owners)',
-                          pageToken=page_token
-                      ).execute()
-                      for folder in response.get('files', []):
-                          owners = [owner.get('emailAddress') for owner in folder.get('owners', [])]
-                          print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {owners}")
-                      page_token = response.get('nextPageToken', None)
-                      if page_token is None:
-                          break
-                  except HttpError as e:
-                      print(f"An error occurred while listing folders: {e}")
-                      sys.exit(1)
-
-          def main():
-              service = build_service()
-              print("Listing all accessible folders:")
-              list_all_folders(service)
-
-          if __name__ == "__main__":
-              main()
-          EOF
-
       # [========================================================]
       # [================ List All Users =========================]
       # [========================================================]
@@ -301,21 +220,6 @@ jobs:
           mkdir -p debug
           mv all_users.txt debug/
           echo "All users listed above."
-
-      # [========================================================]
-      # [================ List Accessible Folders ================]
-      # [========================================================]
-
-      - name: List Accessible Folders
-        run: |
-          echo "Listing all accessible folders for the impersonated user..."
-          python3 list_folders.py > accessible_folders.txt
-          cat accessible_folders.txt
-          # Optionally, upload the list as an artifact for debugging
-          echo "Uploading accessible_folders.txt as an artifact..."
-          mkdir -p debug
-          mv accessible_folders.txt debug/
-          echo "Accessible folders listed above."
 
   # [=========================================]
   # [================ Release ================]
