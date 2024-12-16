@@ -148,8 +148,9 @@ jobs:
         run: |
           cat > list_users.py <<EOF
           import os
-          from google.oauth2 import service_account
+          import sys
           from google.oauth2.credentials import Credentials
+          from google.auth.transport.requests import Request
           from googleapiclient.discovery import build
           from googleapiclient.errors import HttpError
 
@@ -180,20 +181,19 @@ jobs:
 
           def build_admin_service():
               try:
-                  # Load credentials from the file created by the auth action
-                  credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-                  if not credentials_path:
-                      raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
-                      
-                  credentials = service_account.Credentials.from_service_account_file(
-                      credentials_path,
+                  # Get the access token from the environment
+                  access_token = os.environ.get('GOOGLE_ACCESS_TOKEN')
+                  if not access_token:
+                      raise ValueError("GOOGLE_ACCESS_TOKEN environment variable not set")
+                  
+                  # Create credentials from the access token
+                  credentials = Credentials(
+                      token=access_token,
                       scopes=SCOPES
                   )
                   
-                  # Perform domain-wide delegation
-                  delegated_credentials = credentials.with_subject('satbir@sottovocedsp.com')
-                  
-                  service = build('admin', 'directory_v1', credentials=delegated_credentials)
+                  # Build the service with these credentials
+                  service = build('admin', 'directory_v1', credentials=credentials)
                   return service
               except Exception as e:
                   print(f"Failed to build Admin SDK service: {e}")
