@@ -120,7 +120,7 @@ jobs:
 
       - name: Install Python Dependencies for Drive Upload
         run: |
-          run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz
+          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz
 
       # [========================================================]
       # [================ Create Python Scripts ==================]
