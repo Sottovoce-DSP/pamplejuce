@@ -149,7 +149,8 @@ jobs:
           cat > list_users.py <<EOF
           import os
           import sys
-          from google.oauth2 import service_account
+          import google.auth
+          from google.auth import impersonated_credentials
           from googleapiclient.discovery import build
           from googleapiclient.errors import HttpError
 
@@ -159,24 +160,6 @@ jobs:
               'https://www.googleapis.com/auth/drive.metadata',
               'https://www.googleapis.com/auth/drive'
           ]
-
-          def build_admin_service():
-              try:
-                  credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-                  if not credentials_path:
-                      raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
-                  
-                  credentials = service_account.Credentials.from_service_account_file(
-                      credentials_path,
-                      scopes=SCOPES,
-                      subject='satbir@sottovocedsp.com'
-                  )
-                  
-                  service = build('admin', 'directory_v1', credentials=credentials)
-                  return service
-              except Exception as e:
-                  print(f"Failed to build Admin SDK service: {e}")
-                  raise
 
           def list_all_users(service):
               try:
@@ -196,6 +179,25 @@ jobs:
                   print(f"An error occurred while listing users: {e}")
                   sys.exit(1)
 
+          def build_admin_service():
+              try:
+                  print("Getting default credentials for Admin SDK...")
+                  creds, project_id = google.auth.default(scopes=SCOPES)
+                  
+                  target_principal = "satbir@sottovocedsp.com"
+                  target_credentials = impersonated_credentials.Credentials(
+                      source_credentials=creds,
+                      target_principal=target_principal,
+                      target_scopes=SCOPES,
+                      lifetime=3600  # 1 hour token lifetime
+                  )
+                  
+                  service = build('admin', 'directory_v1', credentials=target_credentials)
+                  return service
+              except Exception as e:
+                  print(f"Failed to build Admin SDK service: {e}")
+                  raise
+
           def main():
               service = build_admin_service()
               list_all_users(service)
@@ -206,37 +208,53 @@ jobs:
 
       - name: Create Python List Folders Script
         run: |
-          cat > list_folders.py <<'EOF'
+          cat > list_folders.py <<EOF
           import os
           import sys
-          from google.oauth2 import service_account
+          import google.auth
+          from google.auth import impersonated_credentials
           from googleapiclient.discovery import build
           from googleapiclient.errors import HttpError
 
-          SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+          SCOPES = [
+              'https://www.googleapis.com/auth/admin.directory.user.readonly',
+              'https://www.googleapis.com/auth/userinfo.email',
+              'https://www.googleapis.com/auth/drive.metadata',
+              'https://www.googleapis.com/auth/drive'
+          ]
 
           def build_service():
               try:
-                  credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-                  if not credentials_path:
-                      raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
+                  print("Getting default credentials...")
+                  creds, project_id = google.auth.default(scopes=SCOPES)
                   
-                  print(f"Using credentials file: {credentials_path}")
+                  # Print the current credentials identity for debugging
+                  print(f"Initial credential type: {type(creds)}")
                   
-                  credentials = service_account.Credentials.from_service_account_file(
-                      credentials_path,
-                      scopes=SCOPES,
-                      subject='satbir@sottovocedsp.com'
+                  # Get token source for impersonation
+                  from google.auth import impersonated_credentials
+                  
+                  target_principal = "satbir@sottovocedsp.com"
+                  source_credentials = creds
+                  
+                  # Create impersonated credentials
+                  target_credentials = impersonated_credentials.Credentials(
+                      source_credentials=source_credentials,
+                      target_principal=target_principal,
+                      target_scopes=SCOPES,
+                      lifetime=3600  # 1 hour token lifetime
                   )
                   
-                  service = build('drive', 'v3', credentials=credentials)
+                  print(f"Impersonated credential type: {type(target_credentials)}")
+                  service = build('drive', 'v3', credentials=target_credentials)
                   
+                  # Test the credentials
                   about = service.about().get(fields="user").execute()
                   print(f"Authenticated as: {about['user']['emailAddress']}")
                   
                   return service
               except Exception as e:
-                  print(f"Failed to build service: {e}")
+                  print(f"Failed to build service with impersonation: {e}")
                   raise
 
           def list_all_folders(service):
@@ -251,7 +269,8 @@ jobs:
                           pageToken=page_token
                       ).execute()
                       for folder in response.get('files', []):
-                          print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}")
+                          owners = [owner.get('emailAddress') for owner in folder.get('owners', [])]
+                          print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {owners}")
                       page_token = response.get('nextPageToken', None)
                       if page_token is None:
                           break
@@ -268,20 +287,32 @@ jobs:
               main()
           EOF
 
+      # [========================================================]
+      # [================ List All Users =========================]
+      # [========================================================]
+
       - name: List All Users
         run: |
           echo "Listing all users in the Google Workspace domain..."
           python3 list_users.py > all_users.txt
           cat all_users.txt
+          # Optionally, upload the list as an artifact for debugging
+          echo "Uploading all_users.txt as an artifact..."
           mkdir -p debug
           mv all_users.txt debug/
           echo "All users listed above."
+
+      # [========================================================]
+      # [================ List Accessible Folders ================]
+      # [========================================================]
 
       - name: List Accessible Folders
         run: |
           echo "Listing all accessible folders for the impersonated user..."
           python3 list_folders.py > accessible_folders.txt
           cat accessible_folders.txt
+          # Optionally, upload the list as an artifact for debugging
+          echo "Uploading accessible_folders.txt as an artifact..."
           mkdir -p debug
           mv accessible_folders.txt debug/
           echo "Accessible folders listed above."
