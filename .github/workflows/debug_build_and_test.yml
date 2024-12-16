@@ -143,6 +143,55 @@ jobs:
       # [================ Create Python Scripts ==================]
       # [========================================================]
 
+      - name: Create Python List Users Script
+        run: |
+          cat > list_users.py <<EOF
+          import os
+          import sys
+          import google.auth
+          from googleapiclient.discovery import build
+          from google.auth.exceptions import DefaultCredentialsError
+          from googleapiclient.errors import HttpError
+
+          SCOPES = ['https://www.googleapis.com/auth/admin.directory.user.readonly']
+
+          def list_all_users(service):
+              try:
+                  results = service.users().list(
+                      customer='my_customer',
+                      maxResults=200,
+                      orderBy='email'
+                  ).execute()
+                  users = results.get('users', [])
+                  if not users:
+                      print('No users found.')
+                  else:
+                      print('Users:')
+                      for user in users:
+                          print(user['primaryEmail'])
+              except HttpError as e:
+                  print(f"An error occurred while listing users: {e}")
+                  sys.exit(1)
+
+          def build_admin_service():
+              try:
+                  print("Getting default credentials for Admin SDK...")
+                  creds, project_id = google.auth.default(scopes=SCOPES)
+                  
+                  service = build('admin', 'directory_v1', credentials=creds)
+                  return service
+              except Exception as e:
+                  print(f"Failed to build Admin SDK service: {e}")
+                  raise
+
+          def main():
+              service = build_admin_service()
+              list_all_users(service)
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
       - name: Create Python List Folders Script
         run: |
           cat > list_folders.py <<EOF
@@ -218,6 +267,21 @@ jobs:
           if __name__ == "__main__":
               main()
           EOF
+
+      # [========================================================]
+      # [================ List All Users =========================]
+      # [========================================================]
+
+      - name: List All Users
+        run: |
+          echo "Listing all users in the Google Workspace domain..."
+          python3 list_users.py > all_users.txt
+          cat all_users.txt
+          # Optionally, upload the list as an artifact for debugging
+          echo "Uploading all_users.txt as an artifact..."
+          mkdir -p debug
+          mv all_users.txt debug/
+          echo "All users listed above."
 
       # [========================================================]
       # [================ List Accessible Folders ================]
