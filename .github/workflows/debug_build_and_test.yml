@@ -171,7 +171,7 @@ jobs:
           path: main_repo_commit.txt
 
       - name: Cache the build
-        uses: mozilla-actions/sccache-action@v0.0.5
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Import App Certificate (macOS)
         uses: apple-actions/import-codesign-certs@v3
