@@ -155,8 +155,15 @@ jobs:
               'https://www.googleapis.com/auth/drive',
               'https://www.googleapis.com/auth/drive.metadata'
           ]
+
+          # Impersonate the user
+          USER_TO_IMPERSONATE = "satbir@sottovocedsp.com"
+
+          # Obtain default credentials and delegate to impersonate the user
           creds, project_id = google.auth.default(scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
+          delegated_creds = creds.with_subject(USER_TO_IMPERSONATE)
+
+          service = build('drive', 'v3', credentials=delegated_creds)
 
           def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
               query_parts = [
@@ -227,7 +234,8 @@ jobs:
           )
 
           # Create a version-specific subfolder within the plugin folder
-          now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
+          # Updated to use timezone-aware datetime
+          now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d_%H-%M")
           version_folder_name = f"Release_{VERSION}_{now_str}"
           version_folder_id = find_shared_folder(
               version_folder_name, 
@@ -235,32 +243,25 @@ jobs:
               create_if_not_found=True
           )
 
-          # Step 1: Grant the new owner 'writer' access first
+          # Grant writer access to the user (optional, since we're acting as the user)
           permission_body_writer = {
               'role': 'writer',
               'type': 'user',
               'emailAddress': DRIVE_NEW_OWNER
           }
-          service.permissions().create(
-              fileId=version_folder_id,
-              body=permission_body_writer,
-              fields='id'
-          ).execute()
+          try:
+              service.permissions().create(
+                  fileId=version_folder_id,
+                  body=permission_body_writer,
+                  fields='id'
+              ).execute()
+              print(f"Granted writer access to folder '{version_folder_name}' for '{DRIVE_NEW_OWNER}'.")
+          except googleapiclient.errors.HttpError as error:
+              print(f"An error occurred while granting permissions: {error}")
+              sys.exit(1)
 
-          # Step 2: Transfer ownership to the new owner
-          permission_body_owner = {
-              'role': 'owner',
-              'type': 'user',
-              'emailAddress': DRIVE_NEW_OWNER
-          }
-          service.permissions().create(
-              fileId=version_folder_id,
-              body=permission_body_owner,
-              transferOwnership=True,
-              fields='id'
-          ).execute()
-
-          print(f"Transferred ownership of folder '{version_folder_name}' to '{DRIVE_NEW_OWNER}'.")
+          # Since we're impersonating the user, transferring ownership is unnecessary
+          # Files created will be owned by the impersonated user
 
           # Upload artifacts
           for artifact_path in sys.argv[1:]:
@@ -270,8 +271,12 @@ jobs:
               file_name = os.path.basename(artifact_path)
               media = MediaFileUpload(artifact_path, resumable=True)
               body = {'name': file_name, 'parents': [version_folder_id]}
-              uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
-              print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
+              try:
+                  uploaded_file = service.files().create(body=body, media_body=media, fields='id').execute()
+                  print(f"Uploaded {artifact_path} to folder {version_folder_id} (ID: {uploaded_file['id']})")
+              except googleapiclient.errors.HttpError as error:
+                  print(f"Failed to upload {artifact_path}: {error}")
+                  continue
 
           print(f"::set-output name=VERSION_FOLDER_ID::{version_folder_id}")
           EOF
