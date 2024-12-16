@@ -693,7 +693,7 @@ jobs:
 
       # Authenticate and Configure Google Cloud via OIDC
       - name: Authenticate and Configure Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
