@@ -38,7 +38,7 @@ env:
   IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
   SHOULD_STRIP_SYMBOLS: false
   TEST_SYMBOL: processBlock
-  # Removed USER_TO_IMPERSONate since impersonation is handled in authentication
+  # Removed USER_TO_IMpersonate since impersonation is handled in authentication
 
 defaults:
   run:
@@ -124,7 +124,7 @@ jobs:
 
       - name: Authenticate and Configure Google Cloud
         id: auth
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v1.12.0
         with:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
@@ -349,7 +349,7 @@ jobs:
 
       - name: List Accessible Folders
         run: |
-          echo "Listing all accessible folders for the service account..."
+          echo "Listing all accessible folders for the impersonated user..."
           python3 list_folders.py > accessible_folders.txt
           cat accessible_folders.txt
           # Optionally, upload the list as an artifact for debugging
