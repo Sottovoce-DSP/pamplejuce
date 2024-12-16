@@ -38,6 +38,7 @@ env:
   IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
   SHOULD_STRIP_SYMBOLS: false
   TEST_SYMBOL: processBlock
+  # Removed USER_TO_IMPERSONATE since impersonation is handled in authentication
 
 defaults:
   run:
@@ -127,6 +128,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GOOGLE_DRIVE_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+          subject: satbir@sottovocedsp.com  # Specify the user to impersonate
 
       # [========================================================]
       # [================ Install Python Dependencies ===========]
@@ -156,14 +158,9 @@ jobs:
               'https://www.googleapis.com/auth/drive.metadata'
           ]
 
-          # Impersonate the user
-          USER_TO_IMPERSONATE = "satbir@sottovocedsp.com"
-
-          # Obtain default credentials and delegate to impersonate the user
+          # Obtain default credentials (already impersonating the user)
           creds, project_id = google.auth.default(scopes=SCOPES)
-          delegated_creds = creds.with_subject(USER_TO_IMPERSONATE)
-
-          service = build('drive', 'v3', credentials=delegated_creds)
+          service = build('drive', 'v3', credentials=creds)
 
           def find_shared_folder(name, parent_id=None, owner_email=None, create_if_not_found=False):
               query_parts = [
@@ -290,6 +287,8 @@ jobs:
           from googleapiclient.discovery import build
 
           SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+
+          # Obtain default credentials (already impersonating the user)
           creds, project_id = google.auth.default(scopes=SCOPES)
           service = build('drive', 'v3', credentials=creds)
 
@@ -297,10 +296,12 @@ jobs:
               query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
               page_token = None
               while True:
-                  response = service.files().list(q=query,
-                                                  spaces='drive',
-                                                  fields='nextPageToken, files(id, name, owners)',
-                                                  pageToken=page_token).execute()
+                  response = service.files().list(
+                      q=query,
+                      spaces='drive',
+                      fields='nextPageToken, files(id, name, owners)',
+                      pageToken=page_token
+                  ).execute()
                   for folder in response.get('files', []):
                       print(f"Folder Name: {folder.get('name')}, ID: {folder.get('id')}, Owners: {[owner.get('emailAddress') for owner in folder.get('owners', [])]}")
                   page_token = response.get('nextPageToken', None)
