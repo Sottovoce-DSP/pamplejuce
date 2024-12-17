@@ -99,6 +99,11 @@ jobs:
         with:
           submodules: true
 
+      - name: Get short Git commit hash
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          echo "SHORT_GIT_COMMIT_HASH=$SHORT_HASH" >> $GITHUB_ENV
+
       - name: Save main repo commit to file (macOS)
         if: ${{ matrix.name == 'macOS' }}
         run: git rev-parse HEAD > main_repo_commit.txt
@@ -151,7 +156,7 @@ jobs:
                 est_now = utc_now.astimezone(est_timezone)
 
                 # Format the date and time
-                now_str = est_now.strftime("%B %d %Y %-I:%M%p %Z")  # Example: "December 16 2024 4:35pm EST"
+                now_str = est_now.strftime("%b %d %Y %-I:%M%p")  # Example: "Dec 16 2024 4:35pm"
 
                 # Return the entire string
                 return now_str
@@ -261,7 +266,8 @@ jobs:
 
               # Create a version-specific subfolder within the plugin folder
               now_str = getDateTime()
-              version_folder_name = f"Release ({VERSION}) {now_str}"
+              SHORT_HASH = os.getenv('SHORT_GIT_COMMIT_HASH', 'unknown')
+              version_folder_name = f"Release v{VERSION} {now_str} ({SHORT_HASH})"
               version_folder_id = find_shared_folder(service, version_folder_name, parent_id=plugin_folder_id, create_if_not_found=True)
 
               # Upload artifacts
