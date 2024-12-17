@@ -163,6 +163,10 @@ jobs:
 
           def build_service():
               try:
+                  # Throw error if any of the required environment variables are missing
+                  if not os.getenv("GOOGLE_DRIVE_CLIENT_ID") or not os.getenv("GOOGLE_DRIVE_CLIENT_SECRET") or not os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN"):
+                      raise ValueError("Missing required environment variables")
+
                   # Load credentials from environment
                   creds = Credentials(
                       None,
