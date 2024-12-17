@@ -13,11 +13,6 @@ name: YAML Build and Test
 # [================ Global Variables Needed By Runner ================]
 # [===================================================================]
 
-# For Google Drive upload
-permissions:
-  id-token: write
-  contents: read
-
 on:
   workflow_dispatch: # lets you run a build from the UI
   #push:
