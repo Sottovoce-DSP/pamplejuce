@@ -73,6 +73,13 @@ jobs:
       # [================ Setup Environments ================]
       # [====================================================]
 
+      # Step to set Unix timestamp
+      - name: Set UNIX_TIMESTAMP
+        run: |
+          UNIX_TIMESTAMP=$(date +%s)
+          echo "UNIX_TIMESTAMP=$UNIX_TIMESTAMP" >> $GITHUB_ENV
+          echo "Timestamp: $UNIX_TIMESTAMP"
+
       - name: Set number of cores
         run: |
           echo "Determining number of cores..."
@@ -146,10 +153,10 @@ jobs:
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
 
-          def getDateTime():
-              try:
-                # Get the current time in UTC
-                utc_now = datetime.datetime.now(datetime.timezone.utc)
+          def getDateTime(unix_timestamp):
+            try:
+                # Convert UNIX timestamp to a UTC datetime object
+                utc_now = datetime.datetime.fromtimestamp(int(unix_timestamp), tz=datetime.timezone.utc)
 
                 # Convert UTC to EST
                 est_timezone = pytz.timezone("US/Eastern")
@@ -158,11 +165,11 @@ jobs:
                 # Format the date and time
                 now_str = est_now.strftime("%b %d %Y %-I:%M%p")  # Example: "Dec 16 2024 4:35pm"
 
-                # Return the entire string
+                # Return the formatted string
                 return now_str
-              except Exception as e:
-                  print(f"Failed to build service with impersonation: {e}")
-                  raise
+            except Exception as e:
+                print(f"Failed to process UNIX timestamp: {e}")
+                raise
 
           def build_service():
               try:
@@ -253,6 +260,7 @@ jobs:
               DRIVE_NEW_OWNER = "satbir@sottovocedsp.com"
               PRODUCT_NAME = os.getenv('PRODUCT_NAME')
               VERSION = os.getenv('VERSION')
+              UNIX_TIMESTAMP = os.getenv('UNIX_TIMESTAMP')
 
               if not PRODUCT_NAME or not VERSION:
                   print("PRODUCT_NAME or VERSION is not set.")
@@ -265,9 +273,9 @@ jobs:
               plugin_folder_id = find_shared_folder(service, PRODUCT_NAME, parent_id=root_folder_id, create_if_not_found=True)
 
               # Create a version-specific subfolder within the plugin folder
-              now_str = getDateTime()
+              date_time = getDateTime(UNIX_TIMESTAMP)
               SHORT_HASH = os.getenv('SHORT_GIT_COMMIT_HASH', 'unknown')
-              version_folder_name = f"Release v{VERSION} {now_str} ({SHORT_HASH})"
+              version_folder_name = f"Release v{VERSION} {date_time} ({SHORT_HASH})"
               version_folder_id = find_shared_folder(service, version_folder_name, parent_id=plugin_folder_id, create_if_not_found=True)
 
               # Upload artifacts
