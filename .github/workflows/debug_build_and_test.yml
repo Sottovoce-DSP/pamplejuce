@@ -360,12 +360,22 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      - name: Test if symbol exists (Windows)
+     - name: Test if symbol exists (Windows)
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          echo Checking if symbol "%TEST_SYMBOL%" is present in the Release PDB...
+          echo "Debug: Listing VST3_PATH_WINDOWS content..."
+          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
+          dir /s /b "%VST3_PATH_WINDOWS%"
+          
+          echo.
+          echo "Debug: Looking for PDB files specifically..."
+          dir /s /b "%VST3_PATH_WINDOWS%\*.pdb"
+          
+          echo.
+          echo "Now checking if symbol '%TEST_SYMBOL%' is present in the Release PDB..."
           :: We'll search the unstripped PDB associated with our .vst3
+
           for %%F in ("%VST3_PATH_WINDOWS%\*.pdb") do (
             dumpbin /symbols "%%~F" | findstr /C:"%TEST_SYMBOL%"
             if !ERRORLEVEL! EQU 0 (
