@@ -148,19 +148,19 @@ jobs:
       # [============= Windows Symbol Verification ==========]
       # [====================================================]
 
-      - name: Test if symbol exists (Check 1: dumpbin)
+      - name: Test if symbol exists (Check 1 - dumpbin)
         if: ${{ matrix.name == 'Windows' }}
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using dumpbin..."
           dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (dumpbin)."
 
-      - name: Test if symbol exists (Check 2: strings)
+      - name: Test if symbol exists (Check 2 - strings)
         if: ${{ matrix.name == 'Windows' }}
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using strings..."
           strings "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (strings)."
 
-      - name: Test if symbol exists (Check 3: Cygwin)
+      - name: Test if symbol exists (Check 3 - Cygwin)
         if: runner.os == 'Windows'
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using Cygwin..."
