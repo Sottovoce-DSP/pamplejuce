@@ -89,6 +89,13 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ninja
 
+      - name: Install Cygwin
+        if: runner.os == 'Windows'
+        run: |
+          echo "Installing Cygwin..."
+          choco install -y cygwin
+          echo "Cygwin installed successfully."
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -160,6 +167,12 @@ jobs:
         run: |
           echo "Verifying symbol '${{ env.TEST_SYMBOL }}' is gone from ${{ env.VST3_PATH_WINDOWS }}"
           dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && (echo "Symbol still exists. Strip failed."; exit 1) || echo "Symbol successfully removed."
+
+      - name: Test if symbol exists with Cygwin
+        if: runner.os == 'Windows'
+        run: |
+          echo "Testing symbol existence with Cygwin tools..."
+          C:/tools/cygwin/bin/strings "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" && echo "Symbol found with Cygwin." || (echo "Symbol not found with Cygwin."; exit 1)
   
   # [=========================================]
   # [================ Release ================]
