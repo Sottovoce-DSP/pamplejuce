@@ -144,24 +144,22 @@ jobs:
       - name: Test if symbol exists (Windows)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
-          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' in $BINARY_PATH"
-          dumpbin /SYMBOLS "$BINARY_PATH" | findstr "${{ env.TEST_SYMBOL }}" && exit 0 || (echo "Symbol not found"; exit 1)
+          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' in ${{ env.VST3_PATH_WINDOWS }}"
+          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && exit 0 || (echo "Symbol not found"; exit 1)
 
       - name: Strip binary symbols (Windows)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
           BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
-          echo "Stripping symbols from $BINARY_PATH"
-          strip "$BINARY_PATH"
+          echo "Stripping symbols from ${{ env.VST3_PATH_WINDOWS }}"
+          strip "${{ env.VST3_PATH_WINDOWS }}"
           echo "Symbols stripped successfully."
 
       - name: Test if symbol was stripped (Windows)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
-          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' is gone from $BINARY_PATH"
-          dumpbin /SYMBOLS "$BINARY_PATH" | findstr "${{ env.TEST_SYMBOL }}" && (echo "Symbol still exists. Strip failed."; exit 1) || echo "Symbol successfully removed."
+          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' is gone from ${{ env.VST3_PATH_WINDOWS }}"
+          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && (echo "Symbol still exists. Strip failed."; exit 1) || echo "Symbol successfully removed."
   
   # [=========================================]
   # [================ Release ================]
