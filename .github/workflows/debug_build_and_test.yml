@@ -8,10 +8,7 @@ name: YAML Build and Test
 
 # Recent Change List
 # - Strip binary symbols after testing, before codesign (November 1 2024)
-
-# [===================================================================]
-# [================ Global Variables Needed By Runner ================]
-# [===================================================================]
+# - Fixed path handling and tool installation (December 23 2024)
 
 on:
   workflow_dispatch: # lets you run a build from the UI
@@ -38,20 +35,13 @@ defaults:
   run:
     shell: bash
 
-# [======================================]
-# [================ Jobs ================]
-# [======================================]
-
-# jobs are run in paralell on different machines
-# all steps run in series
 jobs:
   build_and_test:
-    # don't double run on PRs
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
+      fail-fast: false
       matrix:
         include:
           - name: Windows
@@ -60,12 +50,6 @@ jobs:
             lameFilename: lame.exe
 
     steps:
-
-      # [====================================================]
-      # [================ Setup Environments ================]
-      # [====================================================]
-
-      # Figure out how many cores we have to work with
       - name: Set number of cores
         run: |
           echo "Determining number of cores..."
@@ -82,31 +66,35 @@ jobs:
           echo "NUMBER_OF_CORES=$CORES" >> $GITHUB_ENV
           echo "Detected $CORES cores"
 
-      # Setup MSVC toolchain and developer command prompt (Windows)
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
         run: choco install ninja
 
-      - name: Install Cygwin
+      - name: Install Cygwin and Required Tools
         if: runner.os == 'Windows'
         run: |
-          echo "Installing Cygwin..."
+          echo "Installing Cygwin and tools..."
           choco install -y cygwin
+          choco install -y cygwin-utils
+          choco install -y binutils
+          # Verify Cygwin installation
+          if [ ! -d "C:/tools/cygwin" ]; then
+            echo "Error: Cygwin installation not found"
+            exit 1
+          fi
+          # Add Cygwin to PATH
+          echo "C:/tools/cygwin/bin" >> $GITHUB_PATH
           echo "Cygwin installed successfully."
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true # Get JUCE populated
+          submodules: true
 
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
-
-      # [=======================================]
-      # [================ Build ================]
-      # [=======================================]
 
       - name: Configure
         run: |
@@ -121,14 +109,10 @@ jobs:
       - name: Build
         run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel ${{ env.NUMBER_OF_CORES }}
 
-      # [=====================================================]
-      # [================ Setup Git Variables ================]
-      # [=====================================================]
-
-      - name: Read in .env from CMake # see GitHubENV.cmake
+      - name: Read in .env from CMake
         run: |
-          cat .env # show us the config
-          cat .env >> $GITHUB_ENV # pull in our PRODUCT_NAME, etc
+          cat .env
+          cat .env >> $GITHUB_ENV
 
       - name: Set additional env vars for next steps
         run: |
@@ -142,47 +126,70 @@ jobs:
       - name: Set Windows-specific paths
         if: runner.os == 'Windows'
         run: |
-          echo "VST3_PATH_WINDOWS=\"${{ env.VST3_PATH }}\"" >> $GITHUB_ENV
+          # Normalize path with forward slashes and escape spaces
+          VST_PATH="${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}/VST3/${{ env.PRODUCT_NAME }}.vst3"
+          VST_PATH="${VST_PATH// /\\ }"
+          echo "VST3_PATH_WINDOWS=${VST_PATH}" >> $GITHUB_ENV
 
-    # [====================================================]
-      # [============= Windows Symbol Verification ==========]
-      # [====================================================]
+      - name: Verify VST3 path
+        if: runner.os == 'Windows'
+        run: |
+          echo "Checking VST3 path: ${{ env.VST3_PATH_WINDOWS }}"
+          if [ ! -f "${{ env.VST3_PATH_WINDOWS }}" ]; then
+            echo "Error: VST3 file not found"
+            exit 1
+          fi
 
       - name: Test if symbol exists (Check 1 - dumpbin)
-        if: ${{ matrix.name == 'Windows' }}
+        if: matrix.name == 'Windows'
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using dumpbin..."
           dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (dumpbin)."
 
       - name: Test if symbol exists (Check 2 - strings)
-        if: ${{ matrix.name == 'Windows' }}
+        if: matrix.name == 'Windows'
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using strings..."
-          strings "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (strings)."
+          if command -v strings &> /dev/null; then
+            strings "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"
+          elif [ -f "C:/tools/cygwin/bin/strings" ]; then
+            "C:/tools/cygwin/bin/strings" "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"
+          else
+            echo "Warning: strings utility not found"
+          fi || echo "Symbol not found (strings)."
 
       - name: Test if symbol exists (Check 3 - Cygwin)
         if: runner.os == 'Windows'
         run: |
           echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using Cygwin..."
-          C:/tools/cygwin/bin/strings "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (Cygwin)."
+          if [ -f "C:/tools/cygwin/bin/strings" ]; then
+            "C:/tools/cygwin/bin/strings" "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (Cygwin)."
+          else
+            echo "Warning: Cygwin strings utility not found"
+          fi
 
       - name: Strip binary symbols (Windows)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          BINARY_PATH="${{ env.VST3_PATH_WINDOWS }}"
-          echo "Stripping symbols from $BINARY_PATH..."
-          strip "$BINARY_PATH"
-          echo "Symbols stripped successfully."
+          echo "Stripping symbols from '${{ env.VST3_PATH_WINDOWS }}'..."
+          if command -v strip &> /dev/null; then
+            strip "${{ env.VST3_PATH_WINDOWS }}"
+            echo "Symbols stripped successfully."
+          else
+            echo "Error: strip command not found"
+            exit 1
+          fi
 
       - name: Test if symbol was stripped (Final Verification)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
           echo "Verifying symbol '${{ env.TEST_SYMBOL }}' post-strip..."
-          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && echo "Symbol still exists after strip." && exit 1 || echo "Symbol successfully removed."
-
-  # [=========================================]
-  # [================ Release ================]
-  # [=========================================]
+          if dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"; then
+            echo "Error: Symbol still exists after strip."
+            exit 1
+          else
+            echo "Symbol successfully removed."
+          fi
 
   release:
     if: contains(github.ref, 'tags/v')
