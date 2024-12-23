@@ -361,7 +361,7 @@ jobs:
       # [====================================================]
 
       - name: Test if symbol exists (Windows)
-        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         shell: cmd
         run: |
           echo Checking if symbol "%TEST_SYMBOL%" is present in the Release PDB...
@@ -377,7 +377,7 @@ jobs:
           exit /b 1
 
       - name: Copy PDB files (Windows)
-        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         shell: cmd
         run: |
           echo Copying PDB files to symbols folder...
@@ -386,7 +386,7 @@ jobs:
           echo PDB_PATH=%ARTIFACTS_PATH%\symbols >> %GITHUB_ENV%
 
       - name: Strip PDB via editbin (Windows)
-        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         shell: cmd
         run: |
           echo Stripping private symbols from the PDB...
@@ -394,7 +394,7 @@ jobs:
           editbin /PDBSTRIPPED:"%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" "%VST3_PATH_WINDOWS%\%PRODUCT_NAME%.vst3"
 
       - name: Test if symbol was stripped (Windows)
-        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         shell: cmd
         run: |
           dumpbin /symbols "%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" | findstr /C:"%TEST_SYMBOL%"
@@ -405,7 +405,7 @@ jobs:
           echo Symbol successfully stripped from PDB!
 
       - name: Upload symbol files (Windows)
-        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}-symbols-windows
