@@ -361,7 +361,7 @@ jobs:
       # [====================================================]
 
       - name: Test if symbol exists (Windows)
-        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
           echo Checking if symbol "%TEST_SYMBOL%" is present in the Release PDB...
@@ -382,7 +382,14 @@ jobs:
         run: |
           echo Copying PDB files to symbols folder...
           mkdir "%ARTIFACTS_PATH%\symbols"
-          copy "%VST3_PATH_WINDOWS%\*.pdb" "%ARTIFACTS_PATH%\symbols\"
+
+          rem Instead of:
+          rem copy "%VST3_PATH_WINDOWS%\*.pdb" "%ARTIFACTS_PATH%\symbols\"
+          rem We want to copy from the directory containing the .vst3 file.
+          rem If 'Builds\Pamplejuce_artefacts\Release\VST3' is the dir, do:
+
+          copy "%ARTIFACTS_PATH%\VST3\*.pdb" "%ARTIFACTS_PATH%\symbols\"
+
           echo PDB_PATH=%ARTIFACTS_PATH%\symbols >> %GITHUB_ENV%
 
       - name: Strip PDB via editbin (Windows)
