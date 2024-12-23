@@ -76,9 +76,10 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           echo "Installing Cygwin and tools..."
+          # Install base Cygwin
           choco install -y cygwin
-          choco install -y cygwin-utils
-          choco install -y binutils
+          # Install specific Cygwin packages using Cygwin's setup
+          C:/tools/cygwin/cygwinsetup.exe -q -P binutils,strings
           # Verify Cygwin installation
           if [ ! -d "C:/tools/cygwin" ]; then
             echo "Error: Cygwin installation not found"
