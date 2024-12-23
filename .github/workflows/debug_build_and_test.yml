@@ -46,8 +46,6 @@ defaults:
 # [================ Jobs ================]
 # [======================================]
 
-# jobs are run in paralell on different machines
-# all steps run in series
 jobs:
   build_and_test:
     # don't double run on PRs
@@ -58,6 +56,7 @@ jobs:
       fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
+          # Uncomment the following to re-enable Linux or macOS builds
           # - name: Linux
           #   os: ubuntu-22.04
           #   pluginval-binary: ./pluginval
@@ -110,7 +109,6 @@ jobs:
       # This also starts up our "fake" display (Xvfb), needed for pluginval
       - name: Install JUCE's Linux Deps
         if: runner.os == 'Linux'
-        # Thanks to McMartin & co https://forum.juce.com/t/list-of-juce-dependencies-under-linux/15121/44
         run: |
           sudo apt-get update && sudo apt install libasound2-dev libx11-dev libxinerama-dev libxext-dev libfreetype6-dev libwebkit2gtk-4.0-dev libglu1-mesa-dev xvfb ninja-build
           sudo /usr/bin/Xvfb $DISPLAY &
@@ -357,3 +355,75 @@ jobs:
           path: |
             ${{ env.VST3_DSYM_PATH }}
             ${{ env.AU_DSYM_PATH }}
+
+      # [====================================================]
+      # [================ Windows Symbol Strip ==============]
+      # [====================================================]
+
+      - name: Test if symbol exists (Windows)
+        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        shell: cmd
+        run: |
+          echo Checking if symbol "%TEST_SYMBOL%" is present in the Release PDB...
+          :: We'll search the unstripped PDB associated with our .vst3
+          for %%F in ("%VST3_PATH_WINDOWS%\*.pdb") do (
+            dumpbin /symbols "%%~F" | findstr /C:"%TEST_SYMBOL%"
+            if !ERRORLEVEL! EQU 0 (
+              echo Found symbol "%TEST_SYMBOL%" in "%%~F"!
+              exit /b 0
+            )
+          )
+          echo "Could not find symbol %TEST_SYMBOL% in any PDB"
+          exit /b 1
+
+      - name: Copy PDB files (Windows)
+        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        shell: cmd
+        run: |
+          echo Copying PDB files to symbols folder...
+          mkdir "%ARTIFACTS_PATH%\symbols"
+          copy "%VST3_PATH_WINDOWS%\*.pdb" "%ARTIFACTS_PATH%\symbols\"
+          echo PDB_PATH=%ARTIFACTS_PATH%\symbols >> %GITHUB_ENV%
+
+      - name: Strip PDB via editbin (Windows)
+        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        shell: cmd
+        run: |
+          echo Stripping private symbols from the PDB...
+          :: /PDBSTRIPPED:<filename> tells editbin where to write the "stripped" PDB
+          editbin /PDBSTRIPPED:"%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" "%VST3_PATH_WINDOWS%\%PRODUCT_NAME%.vst3"
+
+      - name: Test if symbol was stripped (Windows)
+        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        shell: cmd
+        run: |
+          dumpbin /symbols "%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" | findstr /C:"%TEST_SYMBOL%"
+          if %ERRORLEVEL% EQU 0 (
+            echo Symbol "%TEST_SYMBOL%" still exists in the stripped PDB!
+            exit /b 1
+          )
+          echo Symbol successfully stripped from PDB!
+
+      - name: Upload symbol files (Windows)
+        if: runner.os == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-symbols-windows
+          path: ${{ env.PDB_PATH }}
+
+      # [====================================================]
+      # [================ End Windows Strip ==================]
+      # [====================================================]
+
+      # Continue with any code-signing or archiving as needed here...
+      # For macOS: codesign, productbuild, etc.
+      # For Windows: zip up, etc.
+
+      # Example of final artifact upload (optional)
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.VST3_PATH }}
+            ${{ env.AU_PATH }}
