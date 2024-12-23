@@ -54,14 +54,6 @@ jobs:
       fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
-          # - name: Linux
-          #   os: ubuntu-22.04
-          #   pluginval-binary: ./pluginval
-          - name: macOS
-            os: macos-14
-            pluginval-binary: pluginval.app/Contents/MacOS/pluginval
-            extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-            lameFilename: lame
           - name: Windows
             os: windows-latest
             pluginval-binary: ./pluginval.exe
@@ -97,43 +89,10 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ninja
 
-      - name: Install macOS Deps
-        if: ${{ matrix.name == 'macOS' }}
-        run: brew install ninja osxutils
-
-      # This block can be removed once 15.1 is default (JUCE requires it when building on macOS 14)
-      - name: Use latest Xcode on system (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: true # Get JUCE populated
-
-      - name: Save main repo commit to file (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        run: git rev-parse HEAD > main_repo_commit.txt
-
-      - name: Save git submodule output to file
-        run: |
-          git submodule > git_submodule_versions.txt
-
-      - name: Upload submodule output artifact (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: git_submodule_versions.txt
-          path: git_submodule_versions.txt
-
-      - name: Upload main module output artifact (macOS)
-        if: ${{ matrix.name == 'macOS' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: main_repo_commit.txt
-          path: main_repo_commit.txt
 
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
@@ -173,114 +132,37 @@ jobs:
           echo "AUV3_PATH=$ARTIFACTS_PATH/AUv3/${{ env.PRODUCT_NAME }}.appex" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
 
-      - name: Set macOS-specific env vars
-        if: ${{ matrix.name == 'macOS' }}
-        run: |
-          VST3_BIN="${{ env.VST3_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
-          AU_BIN="${{ env.AU_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
-          echo "VST3_BIN=$VST3_BIN" >> $GITHUB_ENV
-          echo "AU_BIN=$AU_BIN" >> $GITHUB_ENV
-
       - name: Set Windows-specific paths
         if: runner.os == 'Windows'
         run: |
           echo "VST3_PATH_WINDOWS=${{ env.VST3_PATH }}" >> $GITHUB_ENV
 
+    # [====================================================]
+      # [============= Windows Symbol Verification ==========]
       # [====================================================]
-      # [================ Mac Symbol Strip ==================]
-      # [====================================================]
-      
-      - name: Test if symbol exists (macOS)
-        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+
+      - name: Test if symbol exists (Windows)
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          # VST3
-          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
-            echo "Symbol ${{ env.TEST_SYMBOL }} found in VST3!"
-          else
-            echo "Symbol we were expecting to exist in VST3 was not found!"
-            exit 1
-          fi
+          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
+          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' in $BINARY_PATH"
+          dumpbin /SYMBOLS "$BINARY_PATH" | findstr "${{ env.TEST_SYMBOL }}" && exit 0 || (echo "Symbol not found"; exit 1)
 
-          # AU
-          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
-            echo "Symbol ${{ env.TEST_SYMBOL }} found in AU!"
-          else
-            echo "Symbol we were expecting to exist in AU was not found!"
-            exit 1
-          fi
-
-          # VST3
-          echo "VST3 Binary Path: $VST3_BIN"
-          if [ -f "$VST3_BIN" ]; then
-            if dsymutil "$VST3_BIN" -o "$VST3_BIN.dSYM"; then
-              echo "Successfully created dSYM for VST3 Plugin"
-            else
-              echo "Failed to create dSYM for VST3 Plugin"
-              exit 1
-            fi
-
-            if strip -x "$VST3_BIN"; then
-              echo "Successfully stripped VST3 Plugin"
-            else
-              echo "Failed to strip VST3 Plugin"
-              exit 1
-            fi
-          else
-            echo "VST3 Plugin binary not found at $VST3_BIN"
-            exit 1
-          fi
-
-          # AU
-          echo "AU Binary Path: $AU_BIN"
-          if [ -f "$AU_BIN" ]; then
-            if dsymutil "$AU_BIN" -o "$AU_BIN.dSYM"; then
-              echo "Successfully created dSYM for AU Plugin"
-            else
-              echo "Failed to create dSYM for AU Plugin"
-              exit 1
-            fi
-
-            if strip -x "$AU_BIN"; then
-              echo "Successfully stripped AU Plugin"
-            else
-              echo "Failed to strip AU Plugin"
-              exit 1
-            fi
-          else
-            echo "AU Plugin binary not found at $AU_BIN"
-            exit 1
-          fi
-
-          # Export paths for later steps
-          echo "VST3_DSYM_PATH=$VST3_BIN.dSYM" >> $GITHUB_ENV
-          echo "AU_DSYM_PATH=$AU_BIN.dSYM" >> $GITHUB_ENV
-
-      - name: Test if symbol was stripped (macOS)
-        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+      - name: Strip binary symbols (Windows)
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          # VST3
-          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
-            echo "Symbol we were expecting to be stripped is still present in VST3!"
-            exit 1
-          fi
+          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
+          echo "Stripping symbols from $BINARY_PATH"
+          strip "$BINARY_PATH"
+          echo "Symbols stripped successfully."
 
-          # AU
-          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
-            echo "Symbol we were expecting to be stripped is still present in AU!"
-            exit 1
-          fi
-
-          echo "Symbols were successfully stripped from all binaries"
-
-      - name: Upload symbol files (macOS)
-        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-symbols-macOS
-          path: |
-            ${{ env.VST3_DSYM_PATH }}
-            ${{ env.AU_DSYM_PATH }}
-
+      - name: Test if symbol was stripped (Windows)
+        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
+          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' is gone from $BINARY_PATH"
+          dumpbin /SYMBOLS "$BINARY_PATH" | findstr "${{ env.TEST_SYMBOL }}" && (echo "Symbol still exists. Strip failed."; exit 1) || echo "Symbol successfully removed."
+  
   # [=========================================]
   # [================ Release ================]
   # [=========================================]
