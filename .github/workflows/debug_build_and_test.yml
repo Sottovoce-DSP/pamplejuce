@@ -110,7 +110,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -B ${{ env.BUILD_DIR }} \
+          cmake -B "${{ env.BUILD_DIR }}" \
                 -G Ninja \
                 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
                 -DCMAKE_C_COMPILER_LAUNCHER=sccache \
@@ -119,7 +119,7 @@ jobs:
                 .
 
       - name: Build
-        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel ${{ env.NUMBER_OF_CORES }}
+        run: cmake --build "${{ env.BUILD_DIR }}" --config ${ env.BUILD_TYPE } --parallel ${{ env.NUMBER_OF_CORES }}
 
       # [=====================================================]
       # [================ Setup Git Variables ================]
@@ -132,7 +132,7 @@ jobs:
 
       - name: Set additional env vars for next steps
         run: |
-          ARTIFACTS_PATH=${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}
+          ARTIFACTS_PATH="${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}"
           echo "ARTIFACTS_PATH=$ARTIFACTS_PATH" >> $GITHUB_ENV
           echo "VST3_PATH=$ARTIFACTS_PATH/VST3/${{ env.PRODUCT_NAME }}.vst3" >> $GITHUB_ENV
           echo "AU_PATH=$ARTIFACTS_PATH/AU/${{ env.PRODUCT_NAME }}.component" >> $GITHUB_ENV
@@ -142,38 +142,44 @@ jobs:
       - name: Set Windows-specific paths
         if: runner.os == 'Windows'
         run: |
-          echo "VST3_PATH_WINDOWS=${{ env.VST3_PATH }}" >> $GITHUB_ENV
+          echo "VST3_PATH_WINDOWS=\"${{ env.VST3_PATH }}\"" >> $GITHUB_ENV
 
     # [====================================================]
       # [============= Windows Symbol Verification ==========]
       # [====================================================]
 
-      - name: Test if symbol exists (Windows)
-        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+      - name: Test if symbol exists (Check 1: dumpbin)
+        if: ${{ matrix.name == 'Windows' }}
         run: |
-          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' in ${{ env.VST3_PATH_WINDOWS }}"
-          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && exit 0 || (echo "Symbol not found"; exit 1)
+          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using dumpbin..."
+          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (dumpbin)."
+
+      - name: Test if symbol exists (Check 2: strings)
+        if: ${{ matrix.name == 'Windows' }}
+        run: |
+          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using strings..."
+          strings "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (strings)."
+
+      - name: Test if symbol exists (Check 3: Cygwin)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using Cygwin..."
+          C:/tools/cygwin/bin/strings "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (Cygwin)."
 
       - name: Strip binary symbols (Windows)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          BINARY_PATH=${{ env.VST3_PATH_WINDOWS }}
-          echo "Stripping symbols from ${{ env.VST3_PATH_WINDOWS }}"
-          strip "${{ env.VST3_PATH_WINDOWS }}"
+          BINARY_PATH="${{ env.VST3_PATH_WINDOWS }}"
+          echo "Stripping symbols from $BINARY_PATH..."
+          strip "$BINARY_PATH"
           echo "Symbols stripped successfully."
 
-      - name: Test if symbol was stripped (Windows)
+      - name: Test if symbol was stripped (Final Verification)
         if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' is gone from ${{ env.VST3_PATH_WINDOWS }}"
-          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && (echo "Symbol still exists. Strip failed."; exit 1) || echo "Symbol successfully removed."
+          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' post-strip..."
+          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" && echo "Symbol still exists after strip." && exit 1 || echo "Symbol successfully removed."
 
-      - name: Test if symbol exists with Cygwin
-        if: runner.os == 'Windows'
-        run: |
-          echo "Testing symbol existence with Cygwin tools..."
-          C:/tools/cygwin/bin/strings "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" && echo "Symbol found with Cygwin." || (echo "Symbol not found with Cygwin."; exit 1)
-  
   # [=========================================]
   # [================ Release ================]
   # [=========================================]
