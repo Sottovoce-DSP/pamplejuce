@@ -110,7 +110,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -B "${{ env.BUILD_DIR }}" \
+          cmake -B ${{ env.BUILD_DIR }} \
                 -G Ninja \
                 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
                 -DCMAKE_C_COMPILER_LAUNCHER=sccache \
@@ -119,7 +119,7 @@ jobs:
                 .
 
       - name: Build
-        run: cmake --build "${{ env.BUILD_DIR }}" --config ${ env.BUILD_TYPE } --parallel ${{ env.NUMBER_OF_CORES }}
+        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel ${{ env.NUMBER_OF_CORES }}
 
       # [=====================================================]
       # [================ Setup Git Variables ================]
