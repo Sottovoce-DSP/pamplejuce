@@ -4,11 +4,14 @@
 # |_| \__,_|_|_|_| .__/_\___|\__/ \_,_\__\___|  \___|___|
 #                |_|                                     
 
-name: YAML Build and Test
+name: Release Build and Test
 
 # Recent Change List
 # - Strip binary symbols after testing, before codesign (November 1 2024)
-# - Fixed path handling and tool installation (December 23 2024)
+
+# [===================================================================]
+# [================ Global Variables Needed By Runner ================]
+# [===================================================================]
 
 on:
   workflow_dispatch: # lets you run a build from the UI
@@ -28,28 +31,58 @@ env:
   SCCACHE_GHA_ENABLED: true
   SCCACHE_CACHE_MULTIARCH: 1
   IPP_DIR: C:\Program Files (x86)\Intel\oneAPI\ipp\latest\lib\cmake\ipp
-  SHOULD_STRIP_SYMBOLS: true
+  SHOULD_STRIP_SYMBOLS: false
   TEST_SYMBOL: processBlock
+  GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+  GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+  GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+  GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
 
 defaults:
   run:
     shell: bash
 
+# [======================================]
+# [================ Jobs ================]
+# [======================================]
+
+# jobs are run in paralell on different machines
+# all steps run in series
 jobs:
   build_and_test:
+    # don't double run on PRs
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: false # show all errors for each platform (vs. cancel jobs on error)
       matrix:
         include:
+          # - name: Linux
+          #   os: ubuntu-22.04
+          #   pluginval-binary: ./pluginval
+          # - name: macOS
+          #   os: macos-14
+          #   pluginval-binary: pluginval.app/Contents/MacOS/pluginval
+          #   extra-flags: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           - name: Windows
             os: windows-latest
             pluginval-binary: ./pluginval.exe
-            lameFilename: lame.exe
 
     steps:
+
+      # [====================================================]
+      # [================ Setup Environments ================]
+      # [====================================================]
+
+      # Step to set Unix timestamp
+      - name: Set UNIX_TIMESTAMP
+        run: |
+          UNIX_TIMESTAMP=$(date +%s)
+          echo "UNIX_TIMESTAMP=$UNIX_TIMESTAMP" >> $GITHUB_ENV
+          echo "Timestamp: $UNIX_TIMESTAMP"
+
+      # Figure out how many cores we have to work with
       - name: Set number of cores
         run: |
           echo "Determining number of cores..."
@@ -66,36 +99,123 @@ jobs:
           echo "NUMBER_OF_CORES=$CORES" >> $GITHUB_ENV
           echo "Detected $CORES cores"
 
+      # Setup MSVC toolchain and developer command prompt (Windows)
       - uses: ilammy/msvc-dev-cmd@v1
+
+      # Use clang on Linux so we don't introduce a 3rd compiler (Windows and macOS use MSVC and Clang)
+      - name: Set up Clang
+        if: runner.os == 'Linux'
+        uses: egor-tensin/setup-clang@v1
+
+      # This also starts up our "fake" display (Xvfb), needed for pluginval
+      - name: Install JUCE's Linux Deps
+        if: runner.os == 'Linux'
+        # Thanks to McMartin & co https://forum.juce.com/t/list-of-juce-dependencies-under-linux/15121/44
+        run: |
+          sudo apt-get update && sudo apt install libasound2-dev libx11-dev libxinerama-dev libxext-dev libfreetype6-dev libwebkit2gtk-4.0-dev libglu1-mesa-dev xvfb ninja-build
+          sudo /usr/bin/Xvfb $DISPLAY &
+
+      - name: Cache IPP (Windows)
+        if: runner.os == 'Windows'
+        id: cache-ipp
+        uses: actions/cache@v4
+        with:
+          key: ipp-v5
+          path: C:\Program Files (x86)\Intel
+
+      - name: Install IPP (Windows)
+        if: (runner.os == 'Windows') && (steps.cache-ipp.outputs.cache-hit != 'true')
+        run: |
+          curl --output oneapi.exe https://registrationcenter-download.intel.com/akdlm/IRC_NAS/b4adec02-353b-4144-aa21-f2087040f316/w_ipp_oneapi_p_2021.11.0.533_offline.exe
+          ./oneapi.exe -s -x -f oneapi
+          ./oneapi/bootstrapper.exe -s -c --action install --components=intel.oneapi.win.ipp.devel --eula=accept -p=NEED_VS2022_INTEGRATION=1 --log-dir=.
+
+      - name: Save IPP cache (even on CI fail)
+        if: runner.os == 'Windows' && (steps.cache-ipp.outputs.cache-hit != 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: C:\Program Files (x86)\Intel
+          key: ipp-v5
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
         run: choco install ninja
 
-      - name: Install Cygwin and Required Tools
-        if: runner.os == 'Windows'
-        run: |
-          echo "Installing Cygwin and tools..."
-          # Install base Cygwin
-          choco install -y cygwin
-          # Install specific Cygwin packages using Cygwin's setup
-          C:/tools/cygwin/cygwinsetup.exe -q -P binutils,strings
-          # Verify Cygwin installation
-          if [ ! -d "C:/tools/cygwin" ]; then
-            echo "Error: Cygwin installation not found"
-            exit 1
-          fi
-          # Add Cygwin to PATH
-          echo "C:/tools/cygwin/bin" >> $GITHUB_PATH
-          echo "Cygwin installed successfully."
+      - name: Install macOS Deps
+        if: ${{ matrix.name == 'macOS' }}
+        run: brew install ninja osxutils
+
+      # This block can be removed once 15.1 is default (JUCE requires it when building on macOS 14)
+      - name: Use latest Xcode on system (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: true # Get JUCE populated
+
+      - name: Get short Git commit hash
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          echo "SHORT_GIT_COMMIT_HASH=$SHORT_HASH" >> $GITHUB_ENV
+
+      - name: Save main repo commit to file (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: git rev-parse HEAD > main_repo_commit.txt
+
+      - name: Save git submodule output to file (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          git submodule > git_submodule_versions.txt
+
+      - name: Upload submodule output artifact (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: git_submodule_versions.txt
+          path: git_submodule_versions.txt
+
+      - name: Upload main module output artifact (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: main_repo_commit.txt
+          path: main_repo_commit.txt
+
+      - name: Install Python Dependencies for Drive Upload
+        run: |
+          pip3 install google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz --break-system-packages
 
       - name: Cache the build
         uses: mozilla-actions/sccache-action@v0.0.5
+
+      - name: Import App Certificate (macOS)
+        uses: apple-actions/import-codesign-certs@v3
+        if: ${{ matrix.name == 'macOS' }}
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_APP_CERT }}
+          p12-password: ${{ secrets.DEV_ID_APP_PASSWORD }}
+          keychain: "app_signing_temp"
+
+      - name: Import Installer Certificate (macOS)
+        uses: apple-actions/import-codesign-certs@v3
+        if: ${{ matrix.name == 'macOS' }}
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_INSTALL_CERT }}
+          p12-password: ${{ secrets.DEV_ID_INSTALL_PASSWORD }}
+          keychain: "installer_signing_temp"
+
+      - name: Add Both Keychains to Search List (macOS)
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          security list-keychains -d user -s app_signing_temp.keychain installer_signing_temp.keychain $(security list-keychains -d user | tr -d '"')
+
+      # [=======================================]
+      # [================ Build ================]
+      # [=======================================]
 
       - name: Configure
         run: |
@@ -110,103 +230,130 @@ jobs:
       - name: Build
         run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel ${{ env.NUMBER_OF_CORES }}
 
-      - name: Read in .env from CMake
+      # [=====================================================]
+      # [================ Setup Git Variables ================]
+      # [=====================================================]
+
+      - name: Read in .env from CMake # see GitHubENV.cmake
         run: |
-          cat .env
-          cat .env >> $GITHUB_ENV
+          cat .env # show us the config
+          cat .env >> $GITHUB_ENV # pull in our PRODUCT_NAME, etc
 
       - name: Set additional env vars for next steps
         run: |
-          ARTIFACTS_PATH="${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}"
+          ARTIFACTS_PATH=${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}
           echo "ARTIFACTS_PATH=$ARTIFACTS_PATH" >> $GITHUB_ENV
           echo "VST3_PATH=$ARTIFACTS_PATH/VST3/${{ env.PRODUCT_NAME }}.vst3" >> $GITHUB_ENV
           echo "AU_PATH=$ARTIFACTS_PATH/AU/${{ env.PRODUCT_NAME }}.component" >> $GITHUB_ENV
-          echo "AUV3_PATH=$ARTIFACTS_PATH/AUv3/${{ env.PRODUCT_NAME }}.appex" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
+
+      - name: Set macOS-specific env vars
+        if: ${{ matrix.name == 'macOS' }}
+        run: |
+          VST3_BIN="${{ env.VST3_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
+          AU_BIN="${{ env.AU_PATH }}/Contents/MacOS/${{ env.PRODUCT_NAME }}"
+          echo "VST3_BIN=$VST3_BIN" >> $GITHUB_ENV
+          echo "AU_BIN=$AU_BIN" >> $GITHUB_ENV
 
       - name: Set Windows-specific paths
         if: runner.os == 'Windows'
         run: |
-          # Normalize path with forward slashes and escape spaces
-          VST_PATH="${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}/VST3/${{ env.PRODUCT_NAME }}.vst3"
-          VST_PATH="${VST_PATH// /\\ }"
-          echo "VST3_PATH_WINDOWS=${VST_PATH}" >> $GITHUB_ENV
+          echo "VST3_PATH_WINDOWS=${{ env.VST3_PATH }}" >> $GITHUB_ENV
 
-      - name: Verify VST3 path
-        if: runner.os == 'Windows'
+      # [====================================================]
+      # [================ Mac Symbol Strip ==================]
+      # [====================================================]
+      
+      - name: Test if symbol exists (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          echo "Checking VST3 path: ${{ env.VST3_PATH_WINDOWS }}"
-          if [ ! -f "${{ env.VST3_PATH_WINDOWS }}" ]; then
-            echo "Error: VST3 file not found"
+          # VST3
+          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol ${{ env.TEST_SYMBOL }} found in VST3!"
+          else
+            echo "Symbol we were expecting to exist in VST3 was not found!"
             exit 1
           fi
 
-      - name: Test if symbol exists (Check 1 - dumpbin)
-        if: matrix.name == 'Windows'
-        run: |
-          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using dumpbin..."
-          dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (dumpbin)."
-
-      - name: Test if symbol exists (Check 2 - strings)
-        if: matrix.name == 'Windows'
-        run: |
-          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using strings..."
-          if command -v strings &> /dev/null; then
-            strings "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"
-          elif [ -f "C:/tools/cygwin/bin/strings" ]; then
-            "C:/tools/cygwin/bin/strings" "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"
+          # AU
+          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol ${{ env.TEST_SYMBOL }} found in AU!"
           else
-            echo "Warning: strings utility not found"
-          fi || echo "Symbol not found (strings)."
-
-      - name: Test if symbol exists (Check 3 - Cygwin)
-        if: runner.os == 'Windows'
-        run: |
-          echo "Checking for symbol '${{ env.TEST_SYMBOL }}' using Cygwin..."
-          if [ -f "C:/tools/cygwin/bin/strings" ]; then
-            "C:/tools/cygwin/bin/strings" "${{ env.VST3_PATH_WINDOWS }}" | grep "${{ env.TEST_SYMBOL }}" || echo "Symbol not found (Cygwin)."
-          else
-            echo "Warning: Cygwin strings utility not found"
-          fi
-
-      - name: Strip binary symbols (Windows)
-        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
-        run: |
-          echo "Stripping symbols from '${{ env.VST3_PATH_WINDOWS }}'..."
-          if command -v strip &> /dev/null; then
-            strip "${{ env.VST3_PATH_WINDOWS }}"
-            echo "Symbols stripped successfully."
-          else
-            echo "Error: strip command not found"
+            echo "Symbol we were expecting to exist in AU was not found!"
             exit 1
           fi
 
-      - name: Test if symbol was stripped (Final Verification)
-        if: ${{ matrix.name == 'Windows' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+      - name: Generate symbol files, strip binaries (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
         run: |
-          echo "Verifying symbol '${{ env.TEST_SYMBOL }}' post-strip..."
-          if dumpbin /SYMBOLS "${{ env.VST3_PATH_WINDOWS }}" | findstr "${{ env.TEST_SYMBOL }}"; then
-            echo "Error: Symbol still exists after strip."
-            exit 1
+          # VST3
+          echo "VST3 Binary Path: $VST3_BIN"
+          if [ -f "$VST3_BIN" ]; then
+            if dsymutil "$VST3_BIN" -o "$VST3_BIN.dSYM"; then
+              echo "Successfully created dSYM for VST3 Plugin"
+            else
+              echo "Failed to create dSYM for VST3 Plugin"
+              exit 1
+            fi
+
+            if strip -x "$VST3_BIN"; then
+              echo "Successfully stripped VST3 Plugin"
+            else
+              echo "Failed to strip VST3 Plugin"
+              exit 1
+            fi
           else
-            echo "Symbol successfully removed."
+            echo "VST3 Plugin binary not found at $VST3_BIN"
+            exit 1
           fi
 
-  release:
-    if: contains(github.ref, 'tags/v')
-    runs-on: ubuntu-latest
-    needs: build_and_test
+          # AU
+          echo "AU Binary Path: $AU_BIN"
+          if [ -f "$AU_BIN" ]; then
+            if dsymutil "$AU_BIN" -o "$AU_BIN.dSYM"; then
+              echo "Successfully created dSYM for AU Plugin"
+            else
+              echo "Failed to create dSYM for AU Plugin"
+              exit 1
+            fi
 
-    steps:
-      - name: Get Artifacts
-        uses: actions/download-artifact@v4
+            if strip -x "$AU_BIN"; then
+              echo "Successfully stripped AU Plugin"
+            else
+              echo "Failed to strip AU Plugin"
+              exit 1
+            fi
+          else
+            echo "AU Plugin binary not found at $AU_BIN"
+            exit 1
+          fi
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+          # Export paths for later steps
+          echo "VST3_DSYM_PATH=$VST3_BIN.dSYM" >> $GITHUB_ENV
+          echo "AU_DSYM_PATH=$AU_BIN.dSYM" >> $GITHUB_ENV
+
+      - name: Test if symbol was stripped (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        run: |
+          # VST3
+          if nm "$VST3_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol we were expecting to be stripped is still present in VST3!"
+            exit 1
+          fi
+
+          # AU
+          if nm "$AU_BIN" | c++filt | grep -F "${{ env.TEST_SYMBOL }}" > /dev/null; then
+            echo "Symbol we were expecting to be stripped is still present in AU!"
+            exit 1
+          fi
+
+          echo "Symbols were successfully stripped from all binaries"
+
+      - name: Upload symbol files (macOS)
+        if: ${{ matrix.name == 'macOS' && env.SHOULD_STRIP_SYMBOLS == 'true' }}
+        uses: actions/upload-artifact@v4
         with:
-          prerelease: true
-          files: |
-            *.exe
-            *.dmg
-            git_submodule_versions.txt
-            main_repo_commit.txt
+          name: ${{ env.ARTIFACT_NAME }}-symbols-macOS
+          path: |
+            ${{ env.VST3_DSYM_PATH }}
+            ${{ env.AU_DSYM_PATH }}
