@@ -487,7 +487,7 @@ jobs:
       - name: Validate PDB and PE Match
         run: |
           # Extract GUIDs
-          pe_guid=$(dumpbin /headers "${VST3_PATH_WINDOWS}/Pamplejuce Demo.vst3" | findstr /i "GUID")
+          pe_guid=$(dumpbin /headers "${VST3_PATH_WINDOWS}\Contents\x86_64-win\Pamplejuce Demo.vst3" | findstr /i "GUID")
           pdb_guid=$(pdbdump "${BUILD_DIR}/pdbs/test.pdb" | findstr /i "GUID")
           
           echo "PE GUID: $pe_guid"
