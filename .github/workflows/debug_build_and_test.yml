@@ -228,15 +228,16 @@ jobs:
 
       - name: Configure
         if: ${{ matrix.name == 'Windows' }}
+        shell: cmd
         run: |
-          cmake -B ${{ env.BUILD_DIR }} \
-                -G Ninja \
-                -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-                -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-                -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
-                -DCMAKE_CXX_FLAGS_RELEASE=/Zi \
-                -DCMAKE_EXE_LINKER_FLAGS_RELEASE=/DEBUG \
-                ${{ matrix.extra-flags }} \
+          cmake -B %BUILD_DIR% ^
+                -G Ninja ^
+                -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
+                -DCMAKE_C_COMPILER_LAUNCHER=sccache ^
+                -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ^
+                -DCMAKE_CXX_FLAGS_RELEASE=/Zi ^
+                -DCMAKE_EXE_LINKER_FLAGS_RELEASE=/DEBUG ^
+                %{{ matrix.extra-flags }}^
                 .
 
       - name: Build
