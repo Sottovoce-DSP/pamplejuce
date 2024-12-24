@@ -383,56 +383,44 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      - name: Test if symbol exists (Windows)
+      - name: Test if symbol exists (Windows) using PowerShell
         if: ${{ matrix.name == 'Windows' }}
-        shell: cmd
+        shell: powershell
         run: |
-          echo.
-          echo "Now checking if symbol '%TEST_SYMBOL%' is present in the Release PDB..."
-          echo "PDB Path: %BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb"
+          Write-Output "`nNow checking if symbol '$env:TEST_SYMBOL' is present in the Release PDB..."
+          $pdbPath = "$env:BUILD_DIR\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb"
 
-          set PDB_PATH=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb
+          if (Test-Path $pdbPath) {
+            Write-Output "Dumping symbols from $pdbPath..."
+            dumpbin /symbols "$pdbPath" | Out-File symbols_dump.txt
 
-          if exist "%PDB_PATH%" (
-            echo "Dumping symbols from %PDB_PATH%..."
-            dumpbin /symbols "%PDB_PATH%" > symbols_dump.txt
+            Write-Output "`n=== Exact Match Check ==="
+            if (Select-String -Path symbols_dump.txt -Pattern $env:TEST_SYMBOL) {
+              Write-Output "Exact Match: Found symbol '$env:TEST_SYMBOL' in PDB."
+            } else {
+              Write-Output "Exact Match: Symbol '$env:TEST_SYMBOL' NOT found in PDB."
+            }
 
-            echo.
-            echo "=== Exact Match Check ==="
-            findstr /C:"%TEST_SYMBOL%" symbols_dump.txt > nul
-            if %ERRORLEVEL% EQU 0 (
-              echo "Exact Match: Found symbol '%TEST_SYMBOL%' in PDB."
-            ) else (
-              echo "Exact Match: Symbol '%TEST_SYMBOL%' NOT found in PDB."
-            )
+            Write-Output "`n=== Case-Insensitive Match Check ==="
+            if (Select-String -Path symbols_dump.txt -Pattern $env:TEST_SYMBOL -CaseSensitive:$false) {
+              Write-Output "Case-Insensitive Match: Found symbol '$env:TEST_SYMBOL' in PDB."
+            } else {
+              Write-Output "Case-Insensitive Match: Symbol '$env:TEST_SYMBOL' NOT found in PDB."
+            }
 
-            echo.
-            echo "=== Case-Insensitive Match Check ==="
-            findstr /I /C:"%TEST_SYMBOL%" symbols_dump.txt > nul
-            if %ERRORLEVEL% EQU 0 (
-              echo "Case-Insensitive Match: Found symbol '%TEST_SYMBOL%' in PDB."
-            ) else (
-              echo "Case-Insensitive Match: Symbol '%TEST_SYMBOL%' NOT found in PDB."
-            )
+            Write-Output "`n=== Partial/Mangled Name Match Check ==="
+            if (Select-String -Path symbols_dump.txt -Pattern "processBlock") {
+              Write-Output "Partial/Mangled Match: Found 'processBlock' in symbol names within PDB."
+            } else {
+              Write-Output "Partial/Mangled Match: 'processBlock' NOT found in symbol names within PDB."
+            }
 
-            echo.
-            echo "=== Partial/Mangled Name Match Check ==="
-            findstr /C:"processBlock" symbols_dump.txt > nul
-            if %ERRORLEVEL% EQU 0 (
-              echo "Partial/Mangled Match: Found 'processBlock' in symbol names within PDB."
-            ) else (
-              echo "Partial/Mangled Match: 'processBlock' NOT found in symbol names within PDB."
-            )
+            Write-Output "`nSymbol search completed. Review the above results to determine if 'processBlock' is present."
+          } else {
+            Write-Output "PDB file '$pdbPath' does not exist."
+          }
 
-            echo.
-            echo "Symbol search completed. Review the above results to determine if 'processBlock' is present."
-
-          ) else (
-            echo "PDB file '%PDB_PATH%' does not exist."
-          )
-
-          echo.
-          echo "Continuing with the workflow without failing."
+          Write-Output "`nContinuing with the workflow without failing."
 
       - name: Copy PDB files (Windows)
         if: ${{ matrix.name == 'Windows' }}
