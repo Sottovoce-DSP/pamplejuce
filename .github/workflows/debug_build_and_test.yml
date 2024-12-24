@@ -211,9 +211,9 @@ jobs:
       # [================ Build ================]
       # [=======================================]
 
-    - name: Create PDB Directory
-      shell: cmd
-      run: mkdir %BUILD_DIR%\pdbs
+      - name: Create PDB Directory
+        shell: cmd
+        run: mkdir %BUILD_DIR%\pdbs
 
       - name: Configure
         if: ${{ matrix.name == 'macOS' }}
