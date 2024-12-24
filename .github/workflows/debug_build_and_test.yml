@@ -395,6 +395,18 @@ jobs:
         run: |
           where symchk.exe
 
+      - name: List all files (Windows)
+        if: ${{ matrix.name == 'Windows' }}
+        shell: cmd
+        run: |
+          echo "Debug: Listing VST3_PATH_WINDOWS content..."
+          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
+          dir /s /b "%VST3_PATH_WINDOWS%"
+          
+          echo.
+          echo "Debug: Looking for PDB files in build directory..."
+          dir /s /b "%BUILD_DIR%\*.pdb"
+
       # Step: Verify PDB Matches VST3 DLL using symchk
       - name: Verify PDB Matches VST3 DLL with symchk
         if: ${{ matrix.name == 'Windows' }}
