@@ -383,109 +383,26 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      # Step: Install Debugging Tools for Windows
-      - name: Install Debugging Tools for Windows
+       - name: List all files (Windows) DO NOT DELETE THIS
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          echo "Downloading Visual Studio Build Tools..."
-          curl -L -o vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe
-
-          echo "Installing Build Tools with Debugging Tools for Windows..."
-          vs_buildtools.exe --quiet --wait --norestart --nocache ^
-            --installPath C:\BuildTools ^
-            --add Microsoft.VisualStudio.Component.Windows11SDK.22621 ^
-            --add Microsoft.VisualStudio.Component.Windows10SDK.19041 ^
-            --add Microsoft.VisualStudio.Component.Debuggers.x64 ^
-            --includeRecommended
-
-          echo "Adding symchk.exe to PATH..."
-          echo "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64" >> %GITHUB_PATH%
-
-          echo "Cleaning up installer..."
-          del vs_buildtools.exe
-
-      # Step: Verify symchk Installation
-      - name: Verify symchk Installation
-        if: ${{ matrix.name == 'Windows' }}
-        shell: cmd
-        run: |
-          echo "Verifying symchk.exe installation..."
-          where symchk.exe
-          symchk.exe /?
-
-      
-
-      # Step: Verify PDB Matches VST3 DLL using symchk
-      - name: Verify PDB Matches VST3 DLL with symchk
-        if: ${{ matrix.name == 'Windows' }}
-        shell: cmd
-        run: |
+          echo "Debug: Listing VST3_PATH_WINDOWS content..."
+          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
+          dir /s /b "%VST3_PATH_WINDOWS%"
+          
           echo.
-          echo "Verifying that PDB matches the VST3 DLL using symchk..."
+          echo "Debug: Looking for PDB files in build directory..."
+          dir /s /b "%BUILD_DIR%\*.pdb"
 
-          REM Define paths
-          set "BUILD_DIR=Builds"
-          set "CONFIGURATION=Release"
-          set "PRODUCT_NAME=Pamplejuce Demo"
-          set "VST3_DLL_PATH=%BUILD_DIR%\Pamplejuce_artefacts\%CONFIGURATION%\VST3\%PRODUCT_NAME%.vst3\Contents\x86_64-win\%PRODUCT_NAME%.vst3"
-          set "PDB_PATH=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb"
-          set "SYMBOL_CACHE=C:\Symbols"
-          set "SYMBOL_SERVER=https://msdl.microsoft.com/download/symbols"
-          set "SYMBOL_PATH=SRV*%SYMBOL_CACHE%*%SYMBOL_SERVER%"
-
-          echo "VST3 DLL Path: %VST3_DLL_PATH%"
-          echo "PDB Path: %PDB_PATH%"
-          echo "Symbol Path: %SYMBOL_PATH%"
-
-          REM Ensure that the symbol cache directory exists
-          if not exist "%SYMBOL_CACHE%" (
-            mkdir "%SYMBOL_CACHE%"
-            echo "Created symbol cache directory at %SYMBOL_CACHE%."
-          )
-
-          REM Run symchk to verify symbols
-          symchk /if "%VST3_DLL_PATH%" /s "%SYMBOL_PATH%" /v /c > symchk_results.txt
-
-          REM Output symchk results
-          echo.
-          echo "=== symchk Results ==="
-          type symchk_results.txt
-
-          REM Check for errors in symchk_results.txt
-          findstr /C:"Failed to verify" symchk_results.txt >nul
-          if %ERRORLEVEL% EQU 0 (
-            echo "Symbol verification FAILED: PDB does not match the VST3 DLL."
-            REM Optionally, fail the step by uncommenting the next line
-            REM exit /b 1
-          ) else (
-            echo "Symbol verification SUCCESS: PDB matches the VST3 DLL."
-          )
-
-          echo.
-          echo "symchk verification completed. Review the above results."
-
-      # Step: Upload symchk Results as Artifact (Optional)
-      - name: Upload symchk Results
-        if: ${{ matrix.name == 'Windows' }}
-        uses: actions/upload-artifact@v4
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
         with:
-          name: symchk_results
-          path: symchk_results.txt
+          version: '10.0'
 
-      # [====================================================]
-      # [================ End Windows Strip ==================]
-      # [====================================================]
+      - name: Check llvm-strip version
+        run: llvm-strip --version
 
-      # Continue with any code-signing or archiving as needed here...
-      # For macOS: codesign, productbuild, etc.
-      # For Windows: zip up, etc.
-
-      # Example of final artifact upload (optional)
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: |
-            ${{ env.VST3_PATH }}
-            ${{ env.AU_PATH }}
+      - name: Strip symbols from VST3 plugin
+        run: llvm-strip --strip-all {{$VST3_PATH_WINDOWS }}plugin.vst3
+    
