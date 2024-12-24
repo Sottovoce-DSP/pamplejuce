@@ -144,3 +144,10 @@ include(PamplejuceIPP)
 
 # Output some config for CI (like our PRODUCT_NAME)
 include(GitHubENV)
+
+# Enable Serialized PDB Access for MSVC
+if (MSVC)
+  add_compile_options(/FS /Zi)
+  set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG")
+  set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG")
+endif()
