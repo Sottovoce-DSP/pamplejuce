@@ -367,11 +367,11 @@ jobs:
           echo "Debug: Listing VST3_PATH_WINDOWS content..."
           echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
           dir /s /b "%VST3_PATH_WINDOWS%"
-
+          
           echo.
-          echo "Debug: Looking for PDB files specifically..."
-          dir /s /b "%VST3_PATH_WINDOWS%\*.pdb"
-
+          echo "Debug: Looking for PDB files in build directory..."
+          dir /s /b "%BUILD_DIR%\*.pdb"
+          
           echo.
           echo "Now checking if symbol '%TEST_SYMBOL%' is present in the Release PDB..."
           :: We'll search the unstripped PDB associated with our .vst3
