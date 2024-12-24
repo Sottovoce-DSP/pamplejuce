@@ -384,10 +384,26 @@ jobs:
       # [====================================================]
 
       # Step: Setup Visual Studio and MSBuild
-      - name: Setup Visual Studio and MSBuild
-        uses: microsoft/setup-msbuild@v1.1
-        with:
-          vs-version: 'latest'
+      - name: Install Debugging Tools for Windows
+        shell: cmd
+        run: |
+          echo "Downloading Visual Studio Build Tools..."
+          curl -L -o vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe
+
+          echo "Installing Build Tools with Debugging Tools for Windows..."
+          vs_buildtools.exe --quiet --wait --norestart --nocache ^
+            --installPath C:\BuildTools ^
+            --add Microsoft.VisualStudio.Workload.NativeDesktop ^
+            --add Microsoft.VisualStudio.Component.Windows10SDK.10.0 ^
+            --add Microsoft.VisualStudio.Component.Windows10SDK.DbgEx ^
+            --includeRecommended ^
+            --includeOptional
+
+          echo "Adding symchk.exe to PATH..."
+          setx /M PATH "%PATH%;C:\BuildTools\VC\Tools\MSVC\14.42.34433\bin\Hostx64\x64"
+
+          echo "Cleaning up installer..."
+          del vs_buildtools.exe
 
       # Step: Verify symchk Installation
       - name: Verify symchk Installation
