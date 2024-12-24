@@ -2,6 +2,17 @@
 # 3.24.1 is also bundled in CLion as of 2023
 cmake_minimum_required(VERSION 3.24.1)
 
+# Enable Serialized PDB Access and Debug Info for MSVC
+if (MSVC)
+  # Add /FS and /Zi to both C and C++ compiler flags for Release builds
+  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FS /Zi")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /FS /Zi")
+
+  # Add /DEBUG to both EXE and Shared linker flags for Release builds
+  set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG")
+  set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG")
+endif()
+
 
 # This tells cmake we have goodies in the /cmake folder
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -144,10 +155,3 @@ include(PamplejuceIPP)
 
 # Output some config for CI (like our PRODUCT_NAME)
 include(GitHubENV)
-
-# Enable Serialized PDB Access for MSVC
-if (MSVC)
-  add_compile_options(/FS /Zi)
-  set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG")
-  set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG")
-endif()
