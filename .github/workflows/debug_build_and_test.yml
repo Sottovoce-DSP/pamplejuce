@@ -237,7 +237,7 @@ jobs:
                 -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ^
                 -DCMAKE_CXX_FLAGS_RELEASE="/Zi /FS" ^
                 -DCMAKE_EXE_LINKER_FLAGS_RELEASE=/DEBUG ^
-                %{{ matrix.extra-flags }}^
+                ${{ matrix.extra-flags }} ^
                 .
 
       - name: Build
