@@ -248,7 +248,7 @@ jobs:
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          cmake --build %BUILD_DIR% --config %BUILD_TYPE% --parallel %NUMBER_OF_CORES%
+          cmake --build %BUILD_DIR% --config %BUILD_TYPE% --parallel 1
 
 
       # [=====================================================]
