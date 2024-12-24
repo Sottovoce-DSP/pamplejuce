@@ -410,7 +410,7 @@ jobs:
         shell: cmd
         run: |
           echo "Stripping symbols from: %VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3"
-          llvm-strip --strip-all "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3"
+          llvm-strip --strip-all --verbose "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3"
 
       - name: List symbols after stripping
         shell: cmd
