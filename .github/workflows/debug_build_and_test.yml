@@ -406,7 +406,7 @@ jobs:
           dumpbin /symbols "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3" > symbols-before.txt
           echo "Symbols dumped to symbols-before.txt"
 
-     - name: Check file type with Git Bash
+      - name: Check file type with Git Bash
         shell: bash
         run: file "${VST3_PATH_WINDOWS}/Contents/x86_64-win/Pamplejuce Demo.vst3"
 
