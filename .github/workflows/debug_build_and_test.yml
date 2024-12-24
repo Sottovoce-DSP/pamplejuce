@@ -455,6 +455,13 @@ jobs:
           dumpbin /symbols "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3" > symbols-after.txt
           echo "Symbols dumped to symbols-after.txt"
 
+      - name: List exports after stripping
+        shell: cmd
+        run: |
+          echo "Dumping symbols after stripping..."
+          dumpbin /exports "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3" > exports-after.txt
+          echo "Symbols dumped to exports-after.txt"
+
       - name: Compare symbols before and after stripping
         shell: cmd
         run: |
@@ -468,3 +475,4 @@ jobs:
           path: |
             symbols-before.txt
             symbols-after.txt
+            exports-after.txt
