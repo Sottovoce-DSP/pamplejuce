@@ -383,18 +383,6 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      - name: List all files (Windows)
-        if: ${{ matrix.name == 'Windows' }}
-        shell: cmd
-        run: |
-          echo "Debug: Listing VST3_PATH_WINDOWS content..."
-          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
-          dir /s /b "%VST3_PATH_WINDOWS%"
-          
-          echo.
-          echo "Debug: Looking for PDB files in build directory..."
-          dir /s /b "%BUILD_DIR%\*.pdb"
-
       # Step: Install Debugging Tools for Windows
       - name: Install Debugging Tools for Windows
         if: ${{ matrix.name == 'Windows' }}
@@ -406,14 +394,13 @@ jobs:
           echo "Installing Build Tools with Debugging Tools for Windows..."
           vs_buildtools.exe --quiet --wait --norestart --nocache ^
             --installPath C:\BuildTools ^
-            --add Microsoft.VisualStudio.Workload.NativeDesktop ^
-            --add Microsoft.VisualStudio.Component.Windows10SDK.10.0 ^
-            --add Microsoft.VisualStudio.Component.Windows10SDK.DbgEx ^
-            --includeRecommended ^
-            --includeOptional
+            --add Microsoft.VisualStudio.Component.Windows11SDK.22621 ^
+            --add Microsoft.VisualStudio.Component.Windows10SDK.19041 ^
+            --add Microsoft.VisualStudio.Component.Debuggers.x64 ^
+            --includeRecommended
 
           echo "Adding symchk.exe to PATH..."
-          echo "C:\BuildTools\VC\Tools\MSVC\14.42.34433\bin\Hostx64\x64" >> %GITHUB_PATH%
+          echo "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64" >> %GITHUB_PATH%
 
           echo "Cleaning up installer..."
           del vs_buildtools.exe
@@ -425,6 +412,9 @@ jobs:
         run: |
           echo "Verifying symchk.exe installation..."
           where symchk.exe
+          symchk.exe /?
+
+      
 
       # Step: Verify PDB Matches VST3 DLL using symchk
       - name: Verify PDB Matches VST3 DLL with symchk
