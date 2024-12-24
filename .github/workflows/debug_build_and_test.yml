@@ -383,8 +383,9 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      # Step: Setup Visual Studio and MSBuild
+      # Step: Install Debugging Tools for Windows
       - name: Install Debugging Tools for Windows
+        if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
           echo "Downloading Visual Studio Build Tools..."
@@ -400,28 +401,18 @@ jobs:
             --includeOptional
 
           echo "Adding symchk.exe to PATH..."
-          setx /M PATH "%PATH%;C:\BuildTools\VC\Tools\MSVC\14.42.34433\bin\Hostx64\x64"
+          echo "C:\BuildTools\VC\Tools\MSVC\14.42.34433\bin\Hostx64\x64" >> %GITHUB_PATH%
 
           echo "Cleaning up installer..."
           del vs_buildtools.exe
 
       # Step: Verify symchk Installation
       - name: Verify symchk Installation
-        shell: cmd
-        run: |
-          where symchk.exe
-
-      - name: List all files (Windows)
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          echo "Debug: Listing VST3_PATH_WINDOWS content..."
-          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
-          dir /s /b "%VST3_PATH_WINDOWS%"
-          
-          echo.
-          echo "Debug: Looking for PDB files in build directory..."
-          dir /s /b "%BUILD_DIR%\*.pdb"
+          echo "Verifying symchk.exe installation..."
+          where symchk.exe
 
       # Step: Verify PDB Matches VST3 DLL using symchk
       - name: Verify PDB Matches VST3 DLL with symchk
@@ -472,4 +463,27 @@ jobs:
           echo.
           echo "symchk verification completed. Review the above results."
 
+      # Step: Upload symchk Results as Artifact (Optional)
+      - name: Upload symchk Results
+        if: ${{ matrix.name == 'Windows' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: symchk_results
+          path: symchk_results.txt
 
+      # [====================================================]
+      # [================ End Windows Strip ==================]
+      # [====================================================]
+
+      # Continue with any code-signing or archiving as needed here...
+      # For macOS: codesign, productbuild, etc.
+      # For Windows: zip up, etc.
+
+      # Example of final artifact upload (optional)
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.VST3_PATH }}
+            ${{ env.AU_PATH }}
