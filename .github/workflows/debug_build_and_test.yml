@@ -387,28 +387,25 @@ jobs:
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          echo "Debug: Listing VST3_PATH_WINDOWS content..."
-          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
-          dir /s /b "%VST3_PATH_WINDOWS%"
-          
-          echo.
-          echo "Debug: Looking for PDB files in build directory..."
-          dir /s /b "%BUILD_DIR%\*.pdb"
-          
           echo.
           echo "Now checking if symbol '%TEST_SYMBOL%' is present in the Release PDB..."
-          :: We'll search the unstripped PDB associated with our .vst3
+          :: Searching the specific PDB for Pamplejuce_VST3
 
-          for %%F in ("%VST3_PATH_WINDOWS%\*.pdb") do (
-            dumpbin /symbols "%%~F" | findstr /C:"%TEST_SYMBOL%"
+          set PDB_PATH=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb
+
+          if exist "%PDB_PATH%" (
+            dumpbin /symbols "%PDB_PATH%" | findstr /C:"%TEST_SYMBOL%"
             if !ERRORLEVEL! EQU 0 (
-              echo Found symbol "%TEST_SYMBOL%" in "%%~F"!
+              echo Found symbol "%TEST_SYMBOL%" in "%PDB_PATH%"!
               exit /b 0
+            ) else (
+              echo "Symbol '%TEST_SYMBOL%' not found in PDB."
+              exit /b 1
             )
+          ) else (
+            echo "PDB file '%PDB_PATH%' does not exist."
+            exit /b 1
           )
-          
-          echo "Could not find symbol %TEST_SYMBOL% in any PDB"
-          exit /b 1
 
       - name: Copy PDB files (Windows)
         if: ${{ matrix.name == 'Windows' }}
@@ -417,40 +414,82 @@ jobs:
           echo Copying PDB files to symbols folder...
           mkdir "%ARTIFACTS_PATH%\symbols"
 
-          rem Instead of:
-          rem copy "%VST3_PATH_WINDOWS%\*.pdb" "%ARTIFACTS_PATH%\symbols\"
-          rem We want to copy from the directory containing the .vst3 file.
-          rem If 'Builds\Pamplejuce_artefacts\Release\VST3' is the dir, do:
+          rem Define the source PDB path
+          set SOURCE_PDB=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb
 
-          copy "%ARTIFACTS_PATH%\VST3\*.pdb" "%ARTIFACTS_PATH%\symbols\"
-
-          echo PDB_PATH=%ARTIFACTS_PATH%\symbols >> %GITHUB_ENV%
+          rem Check if the source PDB exists before copying
+          if exist "%SOURCE_PDB%" (
+            copy "%SOURCE_PDB%" "%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb"
+            echo "Copied PDB to symbols folder."
+            echo PDB_PATH=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb >> %GITHUB_ENV%
+          ) else (
+            echo "Source PDB '%SOURCE_PDB%' does not exist. Skipping copy."
+            exit /b 1
+          )
 
       - name: Strip PDB via editbin (Windows)
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
           echo Stripping private symbols from the PDB...
-          :: /PDBSTRIPPED:<filename> tells editbin where to write the "stripped" PDB
-          editbin /PDBSTRIPPED:"%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" "%VST3_PATH_WINDOWS%\%PRODUCT_NAME%.vst3"
+          
+          rem Define paths
+          set VST3_DLL_PATH=%VST3_PATH_WINDOWS%\Contents\x86_64-win\%PRODUCT_NAME%.vst3
+          set SOURCE_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb
+          set STRIPPED_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
+
+          rem Check if the VST3 DLL exists
+          if not exist "%VST3_DLL_PATH%" (
+            echo "VST3 DLL '%VST3_DLL_PATH%' does not exist. Cannot strip PDB."
+            exit /b 1
+          )
+
+          rem Check if the source PDB exists
+          if not exist "%SOURCE_PDB%" (
+            echo "Source PDB '%SOURCE_PDB%' does not exist. Cannot strip PDB."
+            exit /b 1
+          )
+
+          rem Perform the stripping using editbin
+          editbin /PDBSTRIPPED:"%STRIPPED_PDB%" "%VST3_DLL_PATH%"
+
+          rem Verify if the stripped PDB was created
+          if exist "%STRIPPED_PDB%" (
+            echo "Stripped PDB created at '%STRIPPED_PDB%'."
+          ) else (
+            echo "Failed to create stripped PDB."
+            exit /b 1
+          )
 
       - name: Test if symbol was stripped (Windows)
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
-          dumpbin /symbols "%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb" | findstr /C:"%TEST_SYMBOL%"
-          if %ERRORLEVEL% EQU 0 (
-            echo Symbol "%TEST_SYMBOL%" still exists in the stripped PDB!
+          echo.
+          echo "Now checking if symbol '%TEST_SYMBOL%' is present in the stripped PDB..."
+          
+          set STRIPPED_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
+
+          if exist "%STRIPPED_PDB%" (
+            dumpbin /symbols "%STRIPPED_PDB%" | findstr /C:"%TEST_SYMBOL%"
+            if !ERRORLEVEL! EQU 0 (
+              echo Symbol "%TEST_SYMBOL%" still exists in the stripped PDB!
+              exit /b 1
+            ) else (
+              echo "Symbol '%TEST_SYMBOL%' successfully stripped from PDB!"
+            )
+          ) else (
+            echo "Stripped PDB '%STRIPPED_PDB%' does not exist."
             exit /b 1
           )
-          echo Symbol successfully stripped from PDB!
 
       - name: Upload symbol files (Windows)
         if: ${{ matrix.name == 'Windows' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}-symbols-windows
-          path: ${{ env.PDB_PATH }}
+          path: |
+            %ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
 
       # [====================================================]
       # [================ End Windows Strip ==================]
