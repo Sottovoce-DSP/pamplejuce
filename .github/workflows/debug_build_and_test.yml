@@ -396,8 +396,35 @@ jobs:
         with:
           version: '10.0'
 
+      - name: Install MinGW (to get GNU strip)
+        if: ${{ matrix.name == 'Windows' }}
+        shell: bash
+        run: |
+          choco install mingw -y
+          echo "GNU strip installed successfully"
+
       - name: Check llvm-strip version
         run: llvm-strip --version
+
+      - name: Verify GNU strip installation
+        if: ${{ matrix.name == 'Windows' }}
+        shell: bash
+        run: |
+          echo "Verifying GNU strip installation..."
+          if command -v strip >/dev/null 2>&1; then
+            echo "GNU strip is installed at:"
+            command -v strip
+          else
+            echo "GNU strip not found in PATH. Installation failed or PATH is incorrect."
+            exit 1
+          fi
+
+      - name: Verify GNU strip version
+        if: ${{ matrix.name == 'Windows' }}
+        shell: bash
+        run: |
+          echo "Checking GNU strip version..."
+          strip --version
 
       - name: List symbols before stripping
         shell: cmd
@@ -409,6 +436,13 @@ jobs:
       - name: Check file type with Git Bash
         shell: bash
         run: file "${VST3_PATH_WINDOWS}/Contents/x86_64-win/Pamplejuce Demo.vst3"
+
+      - name: Strip symbols using GNU strip
+        shell: bash
+        run: |
+          echo "Stripping symbols with GNU strip..."
+          strip --strip-all "${VST3_PATH_WINDOWS}/Contents/x86_64-win/Pamplejuce Demo.vst3"
+          echo "GNU strip completed"
 
       - name: Strip symbols from VST3 plugin
         shell: cmd
