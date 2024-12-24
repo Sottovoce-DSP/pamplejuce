@@ -226,6 +226,7 @@ jobs:
                 ${{ matrix.extra-flags }} \
                 .
 
+      # Removed caching to prevent mismatch of the PDB
       - name: Configure
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
@@ -233,8 +234,6 @@ jobs:
           cmake -B %BUILD_DIR% ^
                 -G Ninja ^
                 -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
-                -DCMAKE_C_COMPILER_LAUNCHER=sccache ^
-                -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ^
                 -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/DEBUG /PDB:pdbs\\test.pdb" ^
                 -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="/DEBUG /PDB:pdbs\\test.pdb" ^
                 ${{ matrix.extra-flags }} ^
@@ -488,8 +487,8 @@ jobs:
       - name: Validate PDB and PE Match
         run: |
           # Extract GUIDs
-          pe_guid=$(dumpbin /headers "${env.VST3_PATH_WINDOWS}/Pamplejuce Demo.vst3" | findstr /i "GUID")
-          pdb_guid=$(pdbdump "${env.BUILD_DIR}/pdbs/test.pdb" | findstr /i "GUID")
+          pe_guid=$(dumpbin /headers "${VST3_PATH_WINDOWS}/Pamplejuce Demo.vst3" | findstr /i "GUID")
+          pdb_guid=$(pdbdump "${BUILD_DIR}/pdbs/test.pdb" | findstr /i "GUID")
           
           echo "PE GUID: $pe_guid"
           echo "PDB GUID: $pdb_guid"
