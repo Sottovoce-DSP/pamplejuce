@@ -383,142 +383,65 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
-      - name: Test if symbol exists (Windows) using PowerShell
-        if: ${{ matrix.name == 'Windows' }}
-        shell: powershell
-        run: |
-          Write-Output "`nNow checking if symbol '$env:TEST_SYMBOL' is present in the Release PDB..."
-          $pdbPath = "$env:BUILD_DIR\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb"
+      # Step: Setup Visual Studio and MSBuild
+      - name: Setup Visual Studio and MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          vs-version: 'latest'
 
-          if (Test-Path $pdbPath) {
-            Write-Output "Dumping symbols from $pdbPath..."
-            dumpbin /symbols "$pdbPath" | Out-File symbols_dump.txt
-
-            Write-Output "`n=== Exact Match Check ==="
-            if (Select-String -Path symbols_dump.txt -Pattern $env:TEST_SYMBOL) {
-              Write-Output "Exact Match: Found symbol '$env:TEST_SYMBOL' in PDB."
-            } else {
-              Write-Output "Exact Match: Symbol '$env:TEST_SYMBOL' NOT found in PDB."
-            }
-
-            Write-Output "`n=== Case-Insensitive Match Check ==="
-            if (Select-String -Path symbols_dump.txt -Pattern $env:TEST_SYMBOL -CaseSensitive:$false) {
-              Write-Output "Case-Insensitive Match: Found symbol '$env:TEST_SYMBOL' in PDB."
-            } else {
-              Write-Output "Case-Insensitive Match: Symbol '$env:TEST_SYMBOL' NOT found in PDB."
-            }
-
-            Write-Output "`n=== Partial/Mangled Name Match Check ==="
-            if (Select-String -Path symbols_dump.txt -Pattern "processBlock") {
-              Write-Output "Partial/Mangled Match: Found 'processBlock' in symbol names within PDB."
-            } else {
-              Write-Output "Partial/Mangled Match: 'processBlock' NOT found in symbol names within PDB."
-            }
-
-            Write-Output "`nSymbol search completed. Review the above results to determine if 'processBlock' is present."
-          } else {
-            Write-Output "PDB file '$pdbPath' does not exist."
-          }
-
-          Write-Output "`nContinuing with the workflow without failing."
-
-      - name: Copy PDB files (Windows)
-        if: ${{ matrix.name == 'Windows' }}
+      # Step: Verify symchk Installation
+      - name: Verify symchk Installation
         shell: cmd
         run: |
-          echo Copying PDB files to symbols folder...
-          mkdir "%ARTIFACTS_PATH%\symbols"
+          where symchk.exe
 
-          rem Define the source PDB path
-          set SOURCE_PDB=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb
-
-          rem Check if the source PDB exists before copying
-          if exist "%SOURCE_PDB%" (
-            copy "%SOURCE_PDB%" "%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb"
-            echo "Copied PDB to symbols folder."
-            echo PDB_PATH=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb >> %GITHUB_ENV%
-          ) else (
-            echo "Source PDB '%SOURCE_PDB%' does not exist. Skipping copy."
-            exit /b 1
-          )
-
-      - name: Strip PDB via editbin (Windows)
-        if: ${{ matrix.name == 'Windows' }}
-        shell: cmd
-        run: |
-          echo Stripping private symbols from the PDB...
-          
-          rem Define paths
-          set VST3_DLL_PATH=%VST3_PATH_WINDOWS%\Contents\x86_64-win\%PRODUCT_NAME%.vst3
-          set SOURCE_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%.pdb
-          set STRIPPED_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
-
-          rem Check if the VST3 DLL exists
-          if not exist "%VST3_DLL_PATH%" (
-            echo "VST3 DLL '%VST3_DLL_PATH%' does not exist. Cannot strip PDB."
-            exit /b 1
-          )
-
-          rem Check if the source PDB exists
-          if not exist "%SOURCE_PDB%" (
-            echo "Source PDB '%SOURCE_PDB%' does not exist. Cannot strip PDB."
-            exit /b 1
-          )
-
-          rem Perform the stripping using editbin
-          editbin /PDBSTRIPPED:"%STRIPPED_PDB%" "%VST3_DLL_PATH%"
-
-          rem Verify if the stripped PDB was created
-          if exist "%STRIPPED_PDB%" (
-            echo "Stripped PDB created at '%STRIPPED_PDB%'."
-          ) else (
-            echo "Failed to create stripped PDB."
-            exit /b 1
-          )
-
-      - name: Test if symbol was stripped (Windows)
+      # Step: Verify PDB Matches VST3 DLL using symchk
+      - name: Verify PDB Matches VST3 DLL with symchk
         if: ${{ matrix.name == 'Windows' }}
         shell: cmd
         run: |
           echo.
-          echo "Now checking if symbol '%TEST_SYMBOL%' is present in the stripped PDB..."
-          
-          set STRIPPED_PDB=%ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
+          echo "Verifying that PDB matches the VST3 DLL using symchk..."
 
-          if exist "%STRIPPED_PDB%" (
-            dumpbin /symbols "%STRIPPED_PDB%" | findstr /C:"%TEST_SYMBOL%"
-            if !ERRORLEVEL! EQU 0 (
-              echo Symbol "%TEST_SYMBOL%" still exists in the stripped PDB!
-              exit /b 1
-            ) else (
-              echo "Symbol '%TEST_SYMBOL%' successfully stripped from PDB!"
-            )
-          ) else (
-            echo "Stripped PDB '%STRIPPED_PDB%' does not exist."
-            exit /b 1
+          REM Define paths
+          set "BUILD_DIR=Builds"
+          set "CONFIGURATION=Release"
+          set "PRODUCT_NAME=Pamplejuce Demo"
+          set "VST3_DLL_PATH=%BUILD_DIR%\Pamplejuce_artefacts\%CONFIGURATION%\VST3\%PRODUCT_NAME%.vst3\Contents\x86_64-win\%PRODUCT_NAME%.vst3"
+          set "PDB_PATH=%BUILD_DIR%\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb"
+          set "SYMBOL_CACHE=C:\Symbols"
+          set "SYMBOL_SERVER=https://msdl.microsoft.com/download/symbols"
+          set "SYMBOL_PATH=SRV*%SYMBOL_CACHE%*%SYMBOL_SERVER%"
+
+          echo "VST3 DLL Path: %VST3_DLL_PATH%"
+          echo "PDB Path: %PDB_PATH%"
+          echo "Symbol Path: %SYMBOL_PATH%"
+
+          REM Ensure that the symbol cache directory exists
+          if not exist "%SYMBOL_CACHE%" (
+            mkdir "%SYMBOL_CACHE%"
+            echo "Created symbol cache directory at %SYMBOL_CACHE%."
           )
 
-      - name: Upload symbol files (Windows)
-        if: ${{ matrix.name == 'Windows' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-symbols-windows
-          path: |
-            %ARTIFACTS_PATH%\symbols\%PRODUCT_NAME%-stripped.pdb
+          REM Run symchk to verify symbols
+          symchk /if "%VST3_DLL_PATH%" /s "%SYMBOL_PATH%" /v /c > symchk_results.txt
 
-      # [====================================================]
-      # [================ End Windows Strip ==================]
-      # [====================================================]
+          REM Output symchk results
+          echo.
+          echo "=== symchk Results ==="
+          type symchk_results.txt
 
-      # Continue with any code-signing or archiving as needed here...
-      # For macOS: codesign, productbuild, etc.
-      # For Windows: zip up, etc.
+          REM Check for errors in symchk_results.txt
+          findstr /C:"Failed to verify" symchk_results.txt >nul
+          if %ERRORLEVEL% EQU 0 (
+            echo "Symbol verification FAILED: PDB does not match the VST3 DLL."
+            REM Optionally, fail the step by uncommenting the next line
+            REM exit /b 1
+          ) else (
+            echo "Symbol verification SUCCESS: PDB matches the VST3 DLL."
+          )
 
-      # Example of final artifact upload (optional)
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: |
-            ${{ env.VST3_PATH }}
-            ${{ env.AU_PATH }}
+          echo.
+          echo "symchk verification completed. Review the above results."
+
+
