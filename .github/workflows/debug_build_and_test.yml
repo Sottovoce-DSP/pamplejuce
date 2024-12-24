@@ -479,3 +479,5 @@ jobs:
             symbols-after.txt
             exports-after.txt
             D:\a\pamplejuce\pamplejuce\Builds\CMakeFiles\Pamplejuce_VST3.dir\vc140.pdb
+            D:\a\pamplejuce\pamplejuce\Builds\Pamplejuce_artefacts\Release\VST3\Pamplejuce Demo.vst3
+
