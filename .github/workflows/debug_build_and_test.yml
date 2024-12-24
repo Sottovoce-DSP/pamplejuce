@@ -383,6 +383,18 @@ jobs:
       # [================ Windows Symbol Strip ==============]
       # [====================================================]
 
+      - name: List all files (Windows)
+        if: ${{ matrix.name == 'Windows' }}
+        shell: cmd
+        run: |
+          echo "Debug: Listing VST3_PATH_WINDOWS content..."
+          echo "VST3_PATH_WINDOWS is: %VST3_PATH_WINDOWS%"
+          dir /s /b "%VST3_PATH_WINDOWS%"
+          
+          echo.
+          echo "Debug: Looking for PDB files in build directory..."
+          dir /s /b "%BUILD_DIR%\*.pdb"
+
       # Step: Install Debugging Tools for Windows
       - name: Install Debugging Tools for Windows
         if: ${{ matrix.name == 'Windows' }}
