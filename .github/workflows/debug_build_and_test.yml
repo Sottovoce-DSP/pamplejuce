@@ -404,5 +404,5 @@ jobs:
         run: llvm-strip --version
 
       - name: Strip symbols from VST3 plugin
-        run: llvm-strip --strip-all {{$VST3_PATH_WINDOWS }}plugin.vst3
+        run: llvm-strip --strip-all "%VST3_PATH_WINDOWS%\Contents\x86_64-win\Pamplejuce Demo.vst3"
     
