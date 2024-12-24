@@ -408,8 +408,7 @@ jobs:
 
      - name: Check file type with Git Bash
         shell: bash
-        run: |
-          file "${VST3_PATH_WINDOWS}/Contents/x86_64-win/Pamplejuce Demo.vst3"
+        run: file "${VST3_PATH_WINDOWS}/Contents/x86_64-win/Pamplejuce Demo.vst3"
 
       - name: Strip symbols from VST3 plugin
         shell: cmd
